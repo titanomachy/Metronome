@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [ master ]
 
+permissions:
+  contents: write
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -16,6 +19,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
+        sudo apt-get remove -y lcov || true
         sudo apt-get install -y libperlio-gzip-perl libjson-pp-perl
         wget https://github.com/linux-test-project/lcov/releases/download/v2.1/lcov-2.1.tar.gz
         tar -xzf lcov-2.1.tar.gz
@@ -51,30 +55,16 @@ jobs:
         mkdir -p docs
         curl -s -o docs/coverage.svg "https://img.shields.io/badge/Coverage-${coverage_pct}%25-${color}"
 
-    - name: Commit Badge
+    - name: Generate HTML Documentation
+      run: |
+        export PATH=$HOME/.nimble/bin:$PATH
+        nimble docs
+
+    - name: Commit Badge and Documentation
+      if: github.event_name == 'push' && github.ref == 'refs/heads/master'
       run: |
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
-        git add docs/coverage.svg
-        git diff-index --quiet HEAD || git commit -m "Update coverage badge [skip ci]" -a
+        git add docs/
+        git diff-index --quiet HEAD || git commit -m "Update docs and coverage badge [skip ci]" -a
         git push
-
-  docs:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-    steps:
-    - uses: actions/checkout@v7
-
-    - name: install nim
-      run: |
-        export CHOOSENIM_CHOOSE_VERSION="2.2.10"
-        curl https://nim-lang.org/choosenim/init.sh -sSf > init.sh
-        sh init.sh -y
-
-    - name: build docs
-      env:
-        GH_PAGES_USERNAME: ${{ secrets.GH_PAGES_USERNAME }}
-        GH_PAGES_ACCESS_TOKEN: ${{ secrets.GH_PAGES_ACCESS_TOKEN }}
-      run: |
-        export PATH=$HOME/.nimble/bin:$PATH
-        make doc
