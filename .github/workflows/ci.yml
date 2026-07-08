@@ -39,8 +39,8 @@ jobs:
 
     - name: Capture Coverage Report
       run: |
-        lcov --ignore-errors inconsistent,unused,mismatch,missing,source,empty,gcov --capture --directory . --output-file coverage.info || true
-        lcov --ignore-errors inconsistent,unused,mismatch,missing,source,empty,gcov --remove coverage.info '*/lib/*' --output-file coverage.info || true
+        lcov --ignore-errors inconsistent,unused,mismatch,missing,source,empty,gcov --capture --directory nimcache --output-file coverage.info
+        lcov --ignore-errors inconsistent,unused,mismatch,missing,source,empty,gcov --extract coverage.info "$GITHUB_WORKSPACE/src/*" --output-file coverage.info
 
     - name: Generate HTML Documentation
       run: |
@@ -49,18 +49,8 @@ jobs:
 
     - name: Generate Coverage Badge
       run: |
-        touch coverage.info
-        coverage_pct=$(awk -F: '/^LF:/ {lf+=$2} /^LH:/ {lh+=$2} END {if (lf>0) printf "%.1f", (lh/lf)*100; else print "0"}' coverage.info || echo "0")
-        color=$(awk -v pct="$coverage_pct" 'BEGIN {
-          if (pct >= 90) print "brightgreen";
-          else if (pct >= 75) print "green";
-          else if (pct >= 50) print "yellow";
-          else print "red";
-        }')
-        echo "Coverage is $coverage_pct%, color is $color"
-        mkdir -p docs
         touch docs/.nojekyll
-        curl -s -o docs/coverage.svg "https://img.shields.io/badge/Coverage-${coverage_pct}%25-${color}"
+        scripts/coverage_badge.sh coverage.info docs/coverage.svg
 
     - name: Commit Badge and Documentation
       if: github.event_name == 'push' && github.ref == 'refs/heads/master'
