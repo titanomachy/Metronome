@@ -31,11 +31,31 @@ jobs:
 
     - name: Capture Coverage Report
       run: |
-        lcov --ignore-errors inconsistent --capture --directory nimcache --output-file coverage.info
-        lcov --ignore-errors inconsistent --remove coverage.info '*/lib/*' --output-file coverage.info
+        if lcov --help | grep -q "ignore-errors"; then
+          lcov --ignore-errors inconsistent --capture --directory nimcache --output-file coverage.info
+          lcov --ignore-errors inconsistent --remove coverage.info '*/lib/*' --output-file coverage.info
+        else
+          lcov --capture --directory nimcache --output-file coverage.info
+          lcov --remove coverage.info '*/lib/*' --output-file coverage.info
+        fi
 
-    - name: Upload coverage reports to Codecov
-      uses: codecov/codecov-action@v7
-      with:
-        files: coverage.info
-        fail_ci_if_error: false
+    - name: Generate Coverage Badge
+      run: |
+        coverage_pct=$(awk -F: '/^LF:/ {lf+=$2} /^LH:/ {lh+=$2} END {if (lf>0) printf "%.1f", (lh/lf)*100; else print "0"}' coverage.info)
+        color=$(awk -v pct="$coverage_pct" 'BEGIN {
+          if (pct >= 90) print "brightgreen";
+          else if (pct >= 75) print "green";
+          else if (pct >= 50) print "yellow";
+          else print "red";
+        }')
+        echo "Coverage is $coverage_pct%, color is $color"
+        mkdir -p docs
+        curl -s -o docs/coverage.svg "https://img.shields.io/badge/Coverage-${coverage_pct}%25-${color}"
+
+    - name: Commit Badge
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add docs/coverage.svg
+        git diff-index --quiet HEAD || git commit -m "Update coverage badge [skip ci]" -a
+        git push

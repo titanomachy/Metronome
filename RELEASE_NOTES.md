@@ -29,9 +29,9 @@ This release modernizes `nim-schedules` to support Nim 2.2.10, resolves compiler
 
 ### 5. Automated CI & Code Coverage
 - Added a custom `coverage` task in `schedules.nimble` that runs tests with coverage instrumentation using isolated test-specific cache directories to prevent `libgcov` checksum conflicts.
-- Created `.github/workflows/ci.yml` to automatically run tests, gather coverage with `lcov`, and upload to Codecov on every commit and PR.
+- Created `.github/workflows/ci.yml` to automatically run tests, gather coverage with `lcov`, parse overall coverage percentage, fetch a dynamic shields.io badge, and commit the badge to the repository on every commit/PR (replacing Codecov, avoiding external account dependencies).
 - Updated `.github/workflows/docs.yml` to compile documentation under Nim 2.2.10.
-- Updated `README.md` to document test runs, coverage commands, and badges (with `<your-github-username>` placeholders).
+- Updated `README.md` to document test runs, coverage commands, and local SVG badge inclusion.
 
 ### 6. Local HTML Documentation Folder
 - Added a custom `docs` task in `schedules.nimble` that compiles the docstrings directly into the `docs/` folder in the repository.
@@ -44,12 +44,16 @@ This release modernizes `nim-schedules` to support Nim 2.2.10, resolves compiler
 nimble test
 ```
 
-### Run Coverage
+### Run Coverage & Generate Badge
 ```bash
 nimble coverage
 lcov --ignore-errors inconsistent --capture --directory nimcache --output-file coverage.info
 lcov --ignore-errors inconsistent --remove coverage.info '*/lib/*' --output-file coverage.info
 genhtml --ignore-errors range --filter missing coverage.info --output-directory coverage_html
+coverage_pct=$(awk -F: '/^LF:/ {lf+=$2} /^LH:/ {lh+=$2} END {if (lf>0) printf "%.1f", (lh/lf)*100; else print "0"}' coverage.info)
+color=$(awk -v pct="$coverage_pct" 'BEGIN {if (pct >= 90) print "brightgreen"; else if (pct >= 75) print "green"; else if (pct >= 50) print "yellow"; else print "red"}')
+mkdir -p docs
+curl -s -o docs/coverage.svg "https://img.shields.io/badge/Coverage-${coverage_pct}%25-${color}"
 ```
 
 ### Generate Documentation

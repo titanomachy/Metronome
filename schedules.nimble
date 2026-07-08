@@ -17,10 +17,11 @@ task coverage, "Run tests and generate code coverage report":
   exec "nim c --debugger:native --passC:--coverage --passL:--coverage --nimcache:nimcache/scheduler -r tests/test_scheduler.nim"
   exec "nim c --debugger:native --passC:--coverage --passL:--coverage --nimcache:nimcache/beater -r tests/test_beater.nim"
   echo "Tests completed successfully."
-  echo "To generate HTML report locally, please ensure 'lcov' is installed, then run:"
+  echo "To generate HTML report and SVG badge locally, please ensure 'lcov' is installed, then run:"
   echo "  lcov --ignore-errors inconsistent --capture --directory nimcache --output-file coverage.info"
-  echo "  lcov --ignore-errors inconsistent --remove coverage.info '*/lib/*' --output-file coverage.info"
+  echo "  lcov --ignore-errors inconsistent --remove coverage.info \"*/lib/*\" --output-file coverage.info"
   echo "  genhtml --ignore-errors range --filter missing coverage.info --output-directory coverage_html"
+  echo "  (See RELEASE_NOTES.md for instructions on generating the local coverage SVG badge)"
 
 task docs, "Generate HTML documentation":
   echo "Generating HTML documentation..."

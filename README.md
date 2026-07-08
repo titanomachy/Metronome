@@ -1,7 +1,7 @@
 # nim-schedules
 
-[![CI](https://github.com/titanomachy/nim-schedules/actions/workflows/ci.yml/badge.svg)](https://github.com/titanomachy/nim-schedules/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/titanomachy/nim-schedules/branch/master/graph/badge.svg)](https://codecov.io/gh/titanomachy/nim-schedules)
+[![CI](https://github.com/<your-github-username>/nim-schedules/actions/workflows/ci.yml/badge.svg)](https://github.com/<your-github-username>/nim-schedules/actions/workflows/ci.yml)
+[![Coverage](docs/coverage.svg)](docs/schedules.html)
 
 A Nim scheduler library that lets you kick off jobs at regular intervals.
 
