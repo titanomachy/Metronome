@@ -39,7 +39,7 @@ jobs:
 
     - name: Capture Coverage Report
       run: |
-        lcov --ignore-errors inconsistent,unused,mismatch,missing,source,empty,gcov --capture --directory nimcache --output-file coverage.info || true
+        lcov --ignore-errors inconsistent,unused,mismatch,missing,source,empty,gcov --capture --directory . --output-file coverage.info || true
         lcov --ignore-errors inconsistent,unused,mismatch,missing,source,empty,gcov --remove coverage.info '*/lib/*' --output-file coverage.info || true
 
     - name: Generate HTML Documentation
