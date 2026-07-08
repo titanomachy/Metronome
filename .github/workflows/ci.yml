@@ -58,3 +58,23 @@ jobs:
         git add docs/coverage.svg
         git diff-index --quiet HEAD || git commit -m "Update coverage badge [skip ci]" -a
         git push
+
+  docs:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    steps:
+    - uses: actions/checkout@v7
+
+    - name: install nim
+      run: |
+        export CHOOSENIM_CHOOSE_VERSION="2.2.10"
+        curl https://nim-lang.org/choosenim/init.sh -sSf > init.sh
+        sh init.sh -y
+
+    - name: build docs
+      env:
+        GH_PAGES_USERNAME: ${{ secrets.GH_PAGES_USERNAME }}
+        GH_PAGES_ACCESS_TOKEN: ${{ secrets.GH_PAGES_ACCESS_TOKEN }}
+      run: |
+        export PATH=$HOME/.nimble/bin:$PATH
+        make doc
