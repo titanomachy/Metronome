@@ -180,9 +180,10 @@ nimble coverage
 This will run all tests and compile intermediate C files in `nimcache/`. If you have `lcov` and `genhtml` installed, you can generate an HTML coverage report:
 
 ```bash
-lcov --ignore-errors inconsistent --capture --directory nimcache --output-file coverage.info
-lcov --ignore-errors inconsistent --remove coverage.info '*/lib/*' --output-file coverage.info
+lcov --ignore-errors inconsistent,unused,mismatch,missing,source,empty,gcov --capture --directory nimcache --output-file coverage.info
+lcov --ignore-errors inconsistent,unused,mismatch,missing,source,empty,gcov --extract coverage.info "$PWD/src/*" --output-file coverage.info
 genhtml --ignore-errors range --filter missing coverage.info --output-directory coverage_html
+scripts/coverage_badge.sh coverage.info docs/coverage.svg
 ```
 
 Open `coverage_html/index.html` in your browser to view the coverage report.
@@ -200,4 +201,3 @@ This compiles all docstrings in the codebase and outputs the generated files dir
 ## License
 
 Nim-schedules is based on MIT license.
-
