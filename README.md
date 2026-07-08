@@ -1,11 +1,11 @@
 # nim-schedules
 
 [![CI](https://github.com/titanomachy/nim-schedules/actions/workflows/ci.yml/badge.svg)](https://github.com/titanomachy/nim-schedules/actions/workflows/ci.yml)
-[![Coverage](docs/coverage.svg)](docs/schedules.html)
+[![Coverage](docs/coverage.svg)](https://titanomachy.github.io/nim-schedules/schedules.html)
 
 A Nim scheduler library that lets you kick off jobs at regular intervals.
 
-Read the [documentation](docs/schedules.html) (locally) or deploy it via GitHub Pages.
+Read the [documentation](https://titanomachy.github.io/nim-schedules/) online or read the [documentation](docs/schedules.html) locally.
 
 Features:
 
