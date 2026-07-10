@@ -47,6 +47,10 @@
 <li><a class="reference external"
           data-doc-search-tag="scheduler: enum BeaterKind" href="schedules/scheduler.html#BeaterKind">scheduler: enum BeaterKind</a></li>
           </ul></dd>
+<dt><a name="BeaterState" href="#BeaterState"><span>BeaterState:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="scheduler: enum BeaterState" href="schedules/scheduler.html#BeaterState">scheduler: enum BeaterState</a></li>
+          </ul></dd>
 <dt><a name="BeaterThreadProc" href="#BeaterThreadProc"><span>BeaterThreadProc:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
           data-doc-search-tag="scheduler: type BeaterThreadProc" href="schedules/scheduler.html#BeaterThreadProc">scheduler: type BeaterThreadProc</a></li>
@@ -107,6 +111,12 @@
 <li><a class="reference external"
           data-doc-search-tag="expr: enum ExprKind" href="schedules/cron/expr.html#ExprKind">expr: enum ExprKind</a></li>
           </ul></dd>
+<dt><a name="failures" href="#failures"><span>failures:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="scheduler: proc failures(beater: Beater): int" href="schedules/scheduler.html#failures%2CBeater">scheduler: proc failures(beater: Beater): int</a></li>
+          <li><a class="reference external"
+          data-doc-search-tag="scheduler: proc failures(self: Scheduler; id: string): int" href="schedules/scheduler.html#failures%2CScheduler%2Cstring">scheduler: proc failures(self: Scheduler; id: string): int</a></li>
+          </ul></dd>
 <dt><a name="Field" href="#Field"><span>Field:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
           data-doc-search-tag="field: type Field" href="schedules/cron/field.html#Field">field: type Field</a></li>
@@ -117,7 +127,7 @@
           </ul></dd>
 <dt><a name="fire" href="#fire"><span>fire:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
-          data-doc-search-tag="scheduler: proc fire(self: Beater): owned(Future[void])" href="schedules/scheduler.html#fire%2CBeater">scheduler: proc fire(self: Beater): owned(Future[void])</a></li>
+          data-doc-search-tag="scheduler: proc fire(self: Beater; errorHandler: JobErrorHandler = nil): owned(Future[void])" href="schedules/scheduler.html#fire%2CBeater%2CJobErrorHandler">scheduler: proc fire(self: Beater; errorHandler: JobErrorHandler = nil): owned(Future[void])</a></li>
           </ul></dd>
 <dt><a name="fireTime" href="#fireTime"><span>fireTime:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
@@ -207,6 +217,10 @@
 <li><a class="reference external"
           data-doc-search-tag="field: proc getValue(field: Field; dt: DateTime): int" href="schedules/cron/field.html#getValue%2CField%2CDateTime">field: proc getValue(field: Field; dt: DateTime): int</a></li>
           </ul></dd>
+<dt><a name="id" href="#id"><span>id:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="scheduler: proc id(beater: Beater): string" href="schedules/scheduler.html#id%2CBeater">scheduler: proc id(beater: Beater): string</a></li>
+          </ul></dd>
 <dt><a name="idle" href="#idle"><span>idle:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
           data-doc-search-tag="scheduler: proc idle(self: Scheduler): owned(Future[void])" href="schedules/scheduler.html#idle%2CScheduler">scheduler: proc idle(self: Scheduler): owned(Future[void])</a></li>
@@ -216,34 +230,50 @@
           data-doc-search-tag="scheduler: proc initBeater(cron: Cron; asyncProc: BeaterAsyncProc;
            startTime: Option[DateTime] = none(DateTime);
            endTime: Option[DateTime] = none(DateTime); id: string = &quot;&quot;;
-           throttleNum: int = 1): Beater" href="schedules/scheduler.html#initBeater%2CCron%2CBeaterAsyncProc%2COption%5BDateTime%5D%2COption%5BDateTime%5D%2Cstring%2Cint">scheduler: proc initBeater(cron: Cron; asyncProc: BeaterAsyncProc;
+           throttleNum: int = 1; errorHandler: JobErrorHandler = nil;
+           timezone: Option[Timezone] = none(Timezone)): Beater" href="schedules/scheduler.html#initBeater%2CCron%2CBeaterAsyncProc%2COption%5BDateTime%5D%2COption%5BDateTime%5D%2Cstring%2Cint%2CJobErrorHandler%2COption%5BTimezone%5D">scheduler: proc initBeater(cron: Cron; asyncProc: BeaterAsyncProc;
            startTime: Option[DateTime] = none(DateTime);
            endTime: Option[DateTime] = none(DateTime); id: string = &quot;&quot;;
-           throttleNum: int = 1): Beater</a></li>
+           throttleNum: int = 1; errorHandler: JobErrorHandler = nil;
+           timezone: Option[Timezone] = none(Timezone)): Beater</a></li>
           <li><a class="reference external"
           data-doc-search-tag="scheduler: proc initBeater(cron: Cron; threadProc: BeaterThreadProc;
            startTime: Option[DateTime] = none(DateTime);
            endTime: Option[DateTime] = none(DateTime); id: string = &quot;&quot;;
-           throttleNum: int = 1): Beater" href="schedules/scheduler.html#initBeater%2CCron%2CBeaterThreadProc%2COption%5BDateTime%5D%2COption%5BDateTime%5D%2Cstring%2Cint">scheduler: proc initBeater(cron: Cron; threadProc: BeaterThreadProc;
+           throttleNum: int = 1; errorHandler: JobErrorHandler = nil;
+           timezone: Option[Timezone] = none(Timezone)): Beater" href="schedules/scheduler.html#initBeater%2CCron%2CBeaterThreadProc%2COption%5BDateTime%5D%2COption%5BDateTime%5D%2Cstring%2Cint%2CJobErrorHandler%2COption%5BTimezone%5D">scheduler: proc initBeater(cron: Cron; threadProc: BeaterThreadProc;
            startTime: Option[DateTime] = none(DateTime);
            endTime: Option[DateTime] = none(DateTime); id: string = &quot;&quot;;
-           throttleNum: int = 1): Beater</a></li>
+           throttleNum: int = 1; errorHandler: JobErrorHandler = nil;
+           timezone: Option[Timezone] = none(Timezone)): Beater</a></li>
+          <li><a class="reference external"
+          data-doc-search-tag="scheduler: proc initBeater(time: DateTime; asyncProc: BeaterAsyncProc; id: string = &quot;&quot;;
+           throttleNum: int = 1; errorHandler: JobErrorHandler = nil): Beater" href="schedules/scheduler.html#initBeater%2CDateTime%2CBeaterAsyncProc%2Cstring%2Cint%2CJobErrorHandler">scheduler: proc initBeater(time: DateTime; asyncProc: BeaterAsyncProc; id: string = &quot;&quot;;
+           throttleNum: int = 1; errorHandler: JobErrorHandler = nil): Beater</a></li>
+          <li><a class="reference external"
+          data-doc-search-tag="scheduler: proc initBeater(time: DateTime; threadProc: BeaterThreadProc; id: string = &quot;&quot;;
+           throttleNum: int = 1; errorHandler: JobErrorHandler = nil): Beater" href="schedules/scheduler.html#initBeater%2CDateTime%2CBeaterThreadProc%2Cstring%2Cint%2CJobErrorHandler">scheduler: proc initBeater(time: DateTime; threadProc: BeaterThreadProc; id: string = &quot;&quot;;
+           throttleNum: int = 1; errorHandler: JobErrorHandler = nil): Beater</a></li>
           <li><a class="reference external"
           data-doc-search-tag="scheduler: proc initBeater(interval: TimeInterval; asyncProc: BeaterAsyncProc;
            startTime: Option[DateTime] = none(DateTime);
            endTime: Option[DateTime] = none(DateTime); id: string = &quot;&quot;;
-           throttleNum: int = 1): Beater" href="schedules/scheduler.html#initBeater%2CTimeInterval%2CBeaterAsyncProc%2COption%5BDateTime%5D%2COption%5BDateTime%5D%2Cstring%2Cint">scheduler: proc initBeater(interval: TimeInterval; asyncProc: BeaterAsyncProc;
+           throttleNum: int = 1; errorHandler: JobErrorHandler = nil;
+           jitter: TimeInterval = initTimeInterval()): Beater" href="schedules/scheduler.html#initBeater%2CTimeInterval%2CBeaterAsyncProc%2COption%5BDateTime%5D%2COption%5BDateTime%5D%2Cstring%2Cint%2CJobErrorHandler%2CTimeInterval">scheduler: proc initBeater(interval: TimeInterval; asyncProc: BeaterAsyncProc;
            startTime: Option[DateTime] = none(DateTime);
            endTime: Option[DateTime] = none(DateTime); id: string = &quot;&quot;;
-           throttleNum: int = 1): Beater</a></li>
+           throttleNum: int = 1; errorHandler: JobErrorHandler = nil;
+           jitter: TimeInterval = initTimeInterval()): Beater</a></li>
           <li><a class="reference external"
           data-doc-search-tag="scheduler: proc initBeater(interval: TimeInterval; threadProc: BeaterThreadProc;
            startTime: Option[DateTime] = none(DateTime);
            endTime: Option[DateTime] = none(DateTime); id: string = &quot;&quot;;
-           throttleNum: int = 1): Beater" href="schedules/scheduler.html#initBeater%2CTimeInterval%2CBeaterThreadProc%2COption%5BDateTime%5D%2COption%5BDateTime%5D%2Cstring%2Cint">scheduler: proc initBeater(interval: TimeInterval; threadProc: BeaterThreadProc;
+           throttleNum: int = 1; errorHandler: JobErrorHandler = nil;
+           jitter: TimeInterval = initTimeInterval()): Beater" href="schedules/scheduler.html#initBeater%2CTimeInterval%2CBeaterThreadProc%2COption%5BDateTime%5D%2COption%5BDateTime%5D%2Cstring%2Cint%2CJobErrorHandler%2CTimeInterval">scheduler: proc initBeater(interval: TimeInterval; threadProc: BeaterThreadProc;
            startTime: Option[DateTime] = none(DateTime);
            endTime: Option[DateTime] = none(DateTime); id: string = &quot;&quot;;
-           throttleNum: int = 1): Beater</a></li>
+           throttleNum: int = 1; errorHandler: JobErrorHandler = nil;
+           jitter: TimeInterval = initTimeInterval()): Beater</a></li>
           </ul></dd>
 <dt><a name="initScheduler" href="#initScheduler"><span>initScheduler:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
@@ -252,6 +282,36 @@
 <dt><a name="initThrottler" href="#initThrottler"><span>initThrottler:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
           data-doc-search-tag="scheduler: proc initThrottler(num: int = 1): Throttler" href="schedules/scheduler.html#initThrottler%2Cint">scheduler: proc initThrottler(num: int = 1): Throttler</a></li>
+          </ul></dd>
+<dt><a name="JobErrorHandler" href="#JobErrorHandler"><span>JobErrorHandler:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="scheduler: type JobErrorHandler" href="schedules/scheduler.html#JobErrorHandler">scheduler: type JobErrorHandler</a></li>
+          </ul></dd>
+<dt><a name="jobState" href="#jobState"><span>jobState:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="scheduler: proc jobState(self: Scheduler; id: string): Option[BeaterState]" href="schedules/scheduler.html#jobState%2CScheduler%2Cstring">scheduler: proc jobState(self: Scheduler; id: string): Option[BeaterState]</a></li>
+          </ul></dd>
+<dt><a name="lastError" href="#lastError"><span>lastError:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="scheduler: proc lastError(beater: Beater): ref Exception" href="schedules/scheduler.html#lastError%2CBeater">scheduler: proc lastError(beater: Beater): ref Exception</a></li>
+          <li><a class="reference external"
+          data-doc-search-tag="scheduler: proc lastError(self: Scheduler; id: string): ref Exception" href="schedules/scheduler.html#lastError%2CScheduler%2Cstring">scheduler: proc lastError(self: Scheduler; id: string): ref Exception</a></li>
+          </ul></dd>
+<dt><a name="lastErrorAt" href="#lastErrorAt"><span>lastErrorAt:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="scheduler: proc lastErrorAt(beater: Beater): Option[DateTime]" href="schedules/scheduler.html#lastErrorAt%2CBeater">scheduler: proc lastErrorAt(beater: Beater): Option[DateTime]</a></li>
+          <li><a class="reference external"
+          data-doc-search-tag="scheduler: proc lastErrorAt(self: Scheduler; id: string): Option[DateTime]" href="schedules/scheduler.html#lastErrorAt%2CScheduler%2Cstring">scheduler: proc lastErrorAt(self: Scheduler; id: string): Option[DateTime]</a></li>
+          </ul></dd>
+<dt><a name="lastRun" href="#lastRun"><span>lastRun:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="scheduler: proc lastRun(beater: Beater): Option[DateTime]" href="schedules/scheduler.html#lastRun%2CBeater">scheduler: proc lastRun(beater: Beater): Option[DateTime]</a></li>
+          <li><a class="reference external"
+          data-doc-search-tag="scheduler: proc lastRun(self: Scheduler; id: string): Option[DateTime]" href="schedules/scheduler.html#lastRun%2CScheduler%2Cstring">scheduler: proc lastRun(self: Scheduler; id: string): Option[DateTime]</a></li>
+          </ul></dd>
+<dt><a name="listJobs" href="#listJobs"><span>listJobs:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="scheduler: proc listJobs(self: Scheduler): seq[string]" href="schedules/scheduler.html#listJobs%2CScheduler">scheduler: proc listJobs(self: Scheduler): seq[string]</a></li>
           </ul></dd>
 <dt><a name="logger" href="#logger"><span>logger:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
@@ -315,13 +375,17 @@
           </ul></dd>
 <dt><a name="newSettings" href="#newSettings"><span>newSettings:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
-          data-doc-search-tag="scheduler: proc newSettings(appName = &quot;&quot;;
-            errorHandler: proc (fut: Future[void]) {.closure, gcsafe.} = nil): Settings" href="schedules/scheduler.html#newSettings%2Cstring%2Cproc%28Future%5Bvoid%5D%29">scheduler: proc newSettings(appName = &quot;&quot;;
-            errorHandler: proc (fut: Future[void]) {.closure, gcsafe.} = nil): Settings</a></li>
+          data-doc-search-tag="scheduler: proc newSettings(appName = &quot;&quot;; errorHandler: JobErrorHandler = nil): Settings" href="schedules/scheduler.html#newSettings%2Cstring%2CJobErrorHandler">scheduler: proc newSettings(appName = &quot;&quot;; errorHandler: JobErrorHandler = nil): Settings</a></li>
           </ul></dd>
 <dt><a name="newStepExpr" href="#newStepExpr"><span>newStepExpr:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
           data-doc-search-tag="expr: proc newStepExpr(expr: Expr; step: int): Expr" href="schedules/cron/expr.html#newStepExpr%2CExpr%2Cint">expr: proc newStepExpr(expr: Expr; step: int): Expr</a></li>
+          </ul></dd>
+<dt><a name="nextRun" href="#nextRun"><span>nextRun:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="scheduler: proc nextRun(beater: Beater): Option[DateTime]" href="schedules/scheduler.html#nextRun%2CBeater">scheduler: proc nextRun(beater: Beater): Option[DateTime]</a></li>
+          <li><a class="reference external"
+          data-doc-search-tag="scheduler: proc nextRun(self: Scheduler; id: string): Option[DateTime]" href="schedules/scheduler.html#nextRun%2CScheduler%2Cstring">scheduler: proc nextRun(self: Scheduler; id: string): Option[DateTime]</a></li>
           </ul></dd>
 <dt><a name="parseDayOfMonths" href="#parseDayOfMonths"><span>parseDayOfMonths:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
@@ -351,9 +415,27 @@
 <li><a class="reference external"
           data-doc-search-tag="parser: proc parseYears(s: string): Expr" href="schedules/cron/parser.html#parseYears%2Cstring">parser: proc parseYears(s: string): Expr</a></li>
           </ul></dd>
+<dt><a name="pause" href="#pause"><span>pause:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="scheduler: proc pause(beater: Beater)" href="schedules/scheduler.html#pause%2CBeater">scheduler: proc pause(beater: Beater)</a></li>
+          <li><a class="reference external"
+          data-doc-search-tag="scheduler: proc pause(self: Scheduler; id: string): bool" href="schedules/scheduler.html#pause%2CScheduler%2Cstring">scheduler: proc pause(self: Scheduler; id: string): bool</a></li>
+          </ul></dd>
 <dt><a name="register" href="#register"><span>register:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
           data-doc-search-tag="scheduler: proc register(self: Scheduler; beater: Beater)" href="schedules/scheduler.html#register%2CScheduler%2CBeater">scheduler: proc register(self: Scheduler; beater: Beater)</a></li>
+          </ul></dd>
+<dt><a name="resume" href="#resume"><span>resume:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="scheduler: proc resume(beater: Beater)" href="schedules/scheduler.html#resume%2CBeater">scheduler: proc resume(beater: Beater)</a></li>
+          <li><a class="reference external"
+          data-doc-search-tag="scheduler: proc resume(self: Scheduler; id: string): bool" href="schedules/scheduler.html#resume%2CScheduler%2Cstring">scheduler: proc resume(self: Scheduler; id: string): bool</a></li>
+          </ul></dd>
+<dt><a name="runningCount" href="#runningCount"><span>runningCount:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="scheduler: proc runningCount(beater: Beater): int" href="schedules/scheduler.html#runningCount%2CBeater">scheduler: proc runningCount(beater: Beater): int</a></li>
+          <li><a class="reference external"
+          data-doc-search-tag="scheduler: proc runningCount(self: Scheduler; id: string): int" href="schedules/scheduler.html#runningCount%2CScheduler%2Cstring">scheduler: proc runningCount(self: Scheduler; id: string): int</a></li>
           </ul></dd>
 <dt><a name="Scheduler" href="#Scheduler"><span>Scheduler:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
@@ -379,6 +461,20 @@
 <li><a class="reference external"
           data-doc-search-tag="scheduler: proc start(self: Scheduler): owned(Future[void])" href="schedules/scheduler.html#start%2CScheduler">scheduler: proc start(self: Scheduler): owned(Future[void])</a></li>
           </ul></dd>
+<dt><a name="state" href="#state"><span>state:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="scheduler: proc state(beater: Beater): BeaterState" href="schedules/scheduler.html#state%2CBeater">scheduler: proc state(beater: Beater): BeaterState</a></li>
+          </ul></dd>
+<dt><a name="stop" href="#stop"><span>stop:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="scheduler: proc stop(beater: Beater)" href="schedules/scheduler.html#stop%2CBeater">scheduler: proc stop(beater: Beater)</a></li>
+          <li><a class="reference external"
+          data-doc-search-tag="scheduler: proc stop(self: Scheduler; id: string): bool" href="schedules/scheduler.html#stop%2CScheduler%2Cstring">scheduler: proc stop(self: Scheduler; id: string): bool</a></li>
+          </ul></dd>
+<dt><a name="stopAll" href="#stopAll"><span>stopAll:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="scheduler: proc stopAll(self: Scheduler)" href="schedules/scheduler.html#stopAll%2CScheduler">scheduler: proc stopAll(self: Scheduler)</a></li>
+          </ul></dd>
 <dt><a name="submit" href="#submit"><span>submit:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
           data-doc-search-tag="scheduler: proc submit(self: Throttler; fut: Future[void])" href="schedules/scheduler.html#submit%2CThrottler%2CFuture%5Bvoid%5D">scheduler: proc submit(self: Throttler; fut: Future[void])</a></li>
@@ -399,7 +495,7 @@
       <div class="twelve-columns footer">
         <span class="nim-sprite"></span>
         <br>
-        <small style="color: var(--hint);">Made with Nim. Generated: 2026-07-08 20:11:14 UTC</small>
+        <small style="color: var(--hint);">Made with Nim. Generated: 2026-07-09 12:57:20 UTC</small>
       </div>
     </div>
   </div>

@@ -37,20 +37,22 @@ jobs:
         export PATH=$HOME/.nimble/bin:$PATH
         nimble coverage
 
-    - name: Capture Coverage Report
-      run: |
-        lcov --ignore-errors inconsistent,unused,mismatch,missing,source,empty,gcov --capture --directory nimcache --output-file coverage.info
-        lcov --ignore-errors inconsistent,unused,mismatch,missing,source,empty,gcov --extract coverage.info "$GITHUB_WORKSPACE/src/*" --output-file coverage.info
-
     - name: Generate HTML Documentation
       run: |
         export PATH=$HOME/.nimble/bin:$PATH
         nimble docs
 
-    - name: Generate Coverage Badge
+    - name: Generate Coverage Report
       run: |
-        touch docs/.nojekyll
-        scripts/coverage_badge.sh coverage.info docs/coverage.svg
+        ./code_coverage.sh
+
+    - name: Check Generated Documentation
+      run: |
+        git diff --exit-code docs/
+        if [ -n "$(git status --porcelain docs/)" ]; then
+          git status --porcelain docs/
+          exit 1
+        fi
 
     - name: Commit Badge and Documentation
       if: github.event_name == 'push' && github.ref == 'refs/heads/master'

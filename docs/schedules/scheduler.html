@@ -66,16 +66,23 @@
   case kind*: BeaterKind
   of bkInterval:
     interval*: TimeInterval
+    jitter*: TimeInterval
   of bkCron:
-    cron*: Cron">Beater</a></li>
+    cron*: Cron
+    timezone*: Option[Timezone]
+  of bkOnce:
+    nil">Beater</a></li>
 <li><a class="reference" href="#BeaterAsyncProc" title="BeaterAsyncProc = proc (): Future[void] {.gcsafe, closure.}">BeaterAsyncProc</a></li>
 <li><a class="reference" href="#BeaterKind" title="BeaterKind {.pure.} = enum
-  bkInterval, bkCron">BeaterKind</a></li>
+  bkInterval, bkCron, bkOnce">BeaterKind</a></li>
+<li><a class="reference" href="#BeaterState" title="BeaterState {.pure.} = enum
+  bsRunning, bsPaused, bsStopped">BeaterState</a></li>
 <li><a class="reference" href="#BeaterThreadProc" title="BeaterThreadProc = proc (): void {.gcsafe, thread.}">BeaterThreadProc</a></li>
+<li><a class="reference" href="#JobErrorHandler" title="JobErrorHandler = proc (fut: Future[void]) {.closure, gcsafe.}">JobErrorHandler</a></li>
 <li><a class="reference" href="#Scheduler" title="Scheduler = ref object">Scheduler</a></li>
 <li><a class="reference" href="#Settings" title="Settings = ref object
   appName*: string
-  errorHandler*: proc (fut: Future[void]) {.closure, gcsafe.}">Settings</a></li>
+  errorHandler*: JobErrorHandler">Settings</a></li>
 <li><a class="reference" href="#Throttler" title="Throttler = ref object">Throttler</a></li>
 
     </ul>
@@ -98,12 +105,21 @@
   <li><a class="reference" href="#%24%2CBeater" title="`$`(beater: Beater): string">`$`(beater: Beater): string</a></li>
 
 </ul>
+<ul class="simple nested-toc-section">failures
+  <li><a class="reference" href="#failures%2CBeater" title="failures(beater: Beater): int">failures(beater: Beater): int</a></li>
+<li><a class="reference" href="#failures%2CScheduler%2Cstring" title="failures(self: Scheduler; id: string): int">failures(self: Scheduler; id: string): int</a></li>
+
+</ul>
 <ul class="simple nested-toc-section">fire
-  <li><a class="reference" href="#fire%2CBeater" title="fire(self: Beater): owned(Future[void])">fire(self: Beater): owned(Future[void])</a></li>
+  <li><a class="reference" href="#fire%2CBeater%2CJobErrorHandler" title="fire(self: Beater; errorHandler: JobErrorHandler = nil): owned(Future[void])">fire(self: Beater; errorHandler: JobErrorHandler = nil): owned(Future[void])</a></li>
 
 </ul>
 <ul class="simple nested-toc-section">fireTime
   <li><a class="reference" href="#fireTime%2CBeater%2COption%5BDateTime%5D%2CDateTime" title="fireTime(self: Beater; prev: Option[DateTime]; now: DateTime): Option[DateTime]">fireTime(self: Beater; prev: Option[DateTime]; now: DateTime): Option[DateTime]</a></li>
+
+</ul>
+<ul class="simple nested-toc-section">id
+  <li><a class="reference" href="#id%2CBeater" title="id(beater: Beater): string">id(beater: Beater): string</a></li>
 
 </ul>
 <ul class="simple nested-toc-section">idle
@@ -111,34 +127,48 @@
 
 </ul>
 <ul class="simple nested-toc-section">initBeater
-  <li><a class="reference" href="#initBeater%2CCron%2CBeaterAsyncProc%2COption%5BDateTime%5D%2COption%5BDateTime%5D%2Cstring%2Cint" title="initBeater(cron: Cron; asyncProc: BeaterAsyncProc;
+  <li><a class="reference" href="#initBeater%2CCron%2CBeaterAsyncProc%2COption%5BDateTime%5D%2COption%5BDateTime%5D%2Cstring%2Cint%2CJobErrorHandler%2COption%5BTimezone%5D" title="initBeater(cron: Cron; asyncProc: BeaterAsyncProc;
            startTime: Option[DateTime] = none(DateTime);
            endTime: Option[DateTime] = none(DateTime); id: string = &quot;&quot;;
-           throttleNum: int = 1): Beater">initBeater(cron: Cron; asyncProc: BeaterAsyncProc;
+           throttleNum: int = 1; errorHandler: JobErrorHandler = nil;
+           timezone: Option[Timezone] = none(Timezone)): Beater">initBeater(cron: Cron; asyncProc: BeaterAsyncProc;
            startTime: Option[DateTime] = none(DateTime);
            endTime: Option[DateTime] = none(DateTime); id: string = &quot;&quot;;
-           throttleNum: int = 1): Beater</a></li>
-<li><a class="reference" href="#initBeater%2CCron%2CBeaterThreadProc%2COption%5BDateTime%5D%2COption%5BDateTime%5D%2Cstring%2Cint" title="initBeater(cron: Cron; threadProc: BeaterThreadProc;
+           throttleNum: int = 1; errorHandler: JobErrorHandler = nil;
+           timezone: Option[Timezone] = none(Timezone)): Beater</a></li>
+<li><a class="reference" href="#initBeater%2CCron%2CBeaterThreadProc%2COption%5BDateTime%5D%2COption%5BDateTime%5D%2Cstring%2Cint%2CJobErrorHandler%2COption%5BTimezone%5D" title="initBeater(cron: Cron; threadProc: BeaterThreadProc;
            startTime: Option[DateTime] = none(DateTime);
            endTime: Option[DateTime] = none(DateTime); id: string = &quot;&quot;;
-           throttleNum: int = 1): Beater">initBeater(cron: Cron; threadProc: BeaterThreadProc;
+           throttleNum: int = 1; errorHandler: JobErrorHandler = nil;
+           timezone: Option[Timezone] = none(Timezone)): Beater">initBeater(cron: Cron; threadProc: BeaterThreadProc;
            startTime: Option[DateTime] = none(DateTime);
            endTime: Option[DateTime] = none(DateTime); id: string = &quot;&quot;;
-           throttleNum: int = 1): Beater</a></li>
-<li><a class="reference" href="#initBeater%2CTimeInterval%2CBeaterAsyncProc%2COption%5BDateTime%5D%2COption%5BDateTime%5D%2Cstring%2Cint" title="initBeater(interval: TimeInterval; asyncProc: BeaterAsyncProc;
+           throttleNum: int = 1; errorHandler: JobErrorHandler = nil;
+           timezone: Option[Timezone] = none(Timezone)): Beater</a></li>
+<li><a class="reference" href="#initBeater%2CTimeInterval%2CBeaterAsyncProc%2COption%5BDateTime%5D%2COption%5BDateTime%5D%2Cstring%2Cint%2CJobErrorHandler%2CTimeInterval" title="initBeater(interval: TimeInterval; asyncProc: BeaterAsyncProc;
            startTime: Option[DateTime] = none(DateTime);
            endTime: Option[DateTime] = none(DateTime); id: string = &quot;&quot;;
-           throttleNum: int = 1): Beater">initBeater(interval: TimeInterval; asyncProc: BeaterAsyncProc;
+           throttleNum: int = 1; errorHandler: JobErrorHandler = nil;
+           jitter: TimeInterval = initTimeInterval()): Beater">initBeater(interval: TimeInterval; asyncProc: BeaterAsyncProc;
            startTime: Option[DateTime] = none(DateTime);
            endTime: Option[DateTime] = none(DateTime); id: string = &quot;&quot;;
-           throttleNum: int = 1): Beater</a></li>
-<li><a class="reference" href="#initBeater%2CTimeInterval%2CBeaterThreadProc%2COption%5BDateTime%5D%2COption%5BDateTime%5D%2Cstring%2Cint" title="initBeater(interval: TimeInterval; threadProc: BeaterThreadProc;
+           throttleNum: int = 1; errorHandler: JobErrorHandler = nil;
+           jitter: TimeInterval = initTimeInterval()): Beater</a></li>
+<li><a class="reference" href="#initBeater%2CTimeInterval%2CBeaterThreadProc%2COption%5BDateTime%5D%2COption%5BDateTime%5D%2Cstring%2Cint%2CJobErrorHandler%2CTimeInterval" title="initBeater(interval: TimeInterval; threadProc: BeaterThreadProc;
            startTime: Option[DateTime] = none(DateTime);
            endTime: Option[DateTime] = none(DateTime); id: string = &quot;&quot;;
-           throttleNum: int = 1): Beater">initBeater(interval: TimeInterval; threadProc: BeaterThreadProc;
+           throttleNum: int = 1; errorHandler: JobErrorHandler = nil;
+           jitter: TimeInterval = initTimeInterval()): Beater">initBeater(interval: TimeInterval; threadProc: BeaterThreadProc;
            startTime: Option[DateTime] = none(DateTime);
            endTime: Option[DateTime] = none(DateTime); id: string = &quot;&quot;;
-           throttleNum: int = 1): Beater</a></li>
+           throttleNum: int = 1; errorHandler: JobErrorHandler = nil;
+           jitter: TimeInterval = initTimeInterval()): Beater</a></li>
+<li><a class="reference" href="#initBeater%2CDateTime%2CBeaterAsyncProc%2Cstring%2Cint%2CJobErrorHandler" title="initBeater(time: DateTime; asyncProc: BeaterAsyncProc; id: string = &quot;&quot;;
+           throttleNum: int = 1; errorHandler: JobErrorHandler = nil): Beater">initBeater(time: DateTime; asyncProc: BeaterAsyncProc; id: string = &quot;&quot;;
+           throttleNum: int = 1; errorHandler: JobErrorHandler = nil): Beater</a></li>
+<li><a class="reference" href="#initBeater%2CDateTime%2CBeaterThreadProc%2Cstring%2Cint%2CJobErrorHandler" title="initBeater(time: DateTime; threadProc: BeaterThreadProc; id: string = &quot;&quot;;
+           throttleNum: int = 1; errorHandler: JobErrorHandler = nil): Beater">initBeater(time: DateTime; threadProc: BeaterThreadProc; id: string = &quot;&quot;;
+           throttleNum: int = 1; errorHandler: JobErrorHandler = nil): Beater</a></li>
 
 </ul>
 <ul class="simple nested-toc-section">initScheduler
@@ -149,14 +179,55 @@
   <li><a class="reference" href="#initThrottler%2Cint" title="initThrottler(num: int = 1): Throttler">initThrottler(num: int = 1): Throttler</a></li>
 
 </ul>
+<ul class="simple nested-toc-section">jobState
+  <li><a class="reference" href="#jobState%2CScheduler%2Cstring" title="jobState(self: Scheduler; id: string): Option[BeaterState]">jobState(self: Scheduler; id: string): Option[BeaterState]</a></li>
+
+</ul>
+<ul class="simple nested-toc-section">lastError
+  <li><a class="reference" href="#lastError%2CBeater" title="lastError(beater: Beater): ref Exception">lastError(beater: Beater): ref Exception</a></li>
+<li><a class="reference" href="#lastError%2CScheduler%2Cstring" title="lastError(self: Scheduler; id: string): ref Exception">lastError(self: Scheduler; id: string): ref Exception</a></li>
+
+</ul>
+<ul class="simple nested-toc-section">lastErrorAt
+  <li><a class="reference" href="#lastErrorAt%2CBeater" title="lastErrorAt(beater: Beater): Option[DateTime]">lastErrorAt(beater: Beater): Option[DateTime]</a></li>
+<li><a class="reference" href="#lastErrorAt%2CScheduler%2Cstring" title="lastErrorAt(self: Scheduler; id: string): Option[DateTime]">lastErrorAt(self: Scheduler; id: string): Option[DateTime]</a></li>
+
+</ul>
+<ul class="simple nested-toc-section">lastRun
+  <li><a class="reference" href="#lastRun%2CBeater" title="lastRun(beater: Beater): Option[DateTime]">lastRun(beater: Beater): Option[DateTime]</a></li>
+<li><a class="reference" href="#lastRun%2CScheduler%2Cstring" title="lastRun(self: Scheduler; id: string): Option[DateTime]">lastRun(self: Scheduler; id: string): Option[DateTime]</a></li>
+
+</ul>
+<ul class="simple nested-toc-section">listJobs
+  <li><a class="reference" href="#listJobs%2CScheduler" title="listJobs(self: Scheduler): seq[string]">listJobs(self: Scheduler): seq[string]</a></li>
+
+</ul>
 <ul class="simple nested-toc-section">newSettings
-  <li><a class="reference" href="#newSettings%2Cstring%2Cproc%28Future%5Bvoid%5D%29" title="newSettings(appName = &quot;&quot;;
-            errorHandler: proc (fut: Future[void]) {.closure, gcsafe.} = nil): Settings">newSettings(appName = &quot;&quot;;
-            errorHandler: proc (fut: Future[void]) {.closure, gcsafe.} = nil): Settings</a></li>
+  <li><a class="reference" href="#newSettings%2Cstring%2CJobErrorHandler" title="newSettings(appName = &quot;&quot;; errorHandler: JobErrorHandler = nil): Settings">newSettings(appName = &quot;&quot;; errorHandler: JobErrorHandler = nil): Settings</a></li>
+
+</ul>
+<ul class="simple nested-toc-section">nextRun
+  <li><a class="reference" href="#nextRun%2CBeater" title="nextRun(beater: Beater): Option[DateTime]">nextRun(beater: Beater): Option[DateTime]</a></li>
+<li><a class="reference" href="#nextRun%2CScheduler%2Cstring" title="nextRun(self: Scheduler; id: string): Option[DateTime]">nextRun(self: Scheduler; id: string): Option[DateTime]</a></li>
+
+</ul>
+<ul class="simple nested-toc-section">pause
+  <li><a class="reference" href="#pause%2CBeater" title="pause(beater: Beater)">pause(beater: Beater)</a></li>
+<li><a class="reference" href="#pause%2CScheduler%2Cstring" title="pause(self: Scheduler; id: string): bool">pause(self: Scheduler; id: string): bool</a></li>
 
 </ul>
 <ul class="simple nested-toc-section">register
   <li><a class="reference" href="#register%2CScheduler%2CBeater" title="register(self: Scheduler; beater: Beater)">register(self: Scheduler; beater: Beater)</a></li>
+
+</ul>
+<ul class="simple nested-toc-section">resume
+  <li><a class="reference" href="#resume%2CBeater" title="resume(beater: Beater)">resume(beater: Beater)</a></li>
+<li><a class="reference" href="#resume%2CScheduler%2Cstring" title="resume(self: Scheduler; id: string): bool">resume(self: Scheduler; id: string): bool</a></li>
+
+</ul>
+<ul class="simple nested-toc-section">runningCount
+  <li><a class="reference" href="#runningCount%2CBeater" title="runningCount(beater: Beater): int">runningCount(beater: Beater): int</a></li>
+<li><a class="reference" href="#runningCount%2CScheduler%2Cstring" title="runningCount(self: Scheduler; id: string): int">runningCount(self: Scheduler; id: string): int</a></li>
 
 </ul>
 <ul class="simple nested-toc-section">serve
@@ -165,6 +236,19 @@
 </ul>
 <ul class="simple nested-toc-section">start
   <li><a class="reference" href="#start%2CScheduler" title="start(self: Scheduler): owned(Future[void])">start(self: Scheduler): owned(Future[void])</a></li>
+
+</ul>
+<ul class="simple nested-toc-section">state
+  <li><a class="reference" href="#state%2CBeater" title="state(beater: Beater): BeaterState">state(beater: Beater): BeaterState</a></li>
+
+</ul>
+<ul class="simple nested-toc-section">stop
+  <li><a class="reference" href="#stop%2CBeater" title="stop(beater: Beater)">stop(beater: Beater)</a></li>
+<li><a class="reference" href="#stop%2CScheduler%2Cstring" title="stop(self: Scheduler; id: string): bool">stop(self: Scheduler; id: string): bool</a></li>
+
+</ul>
+<ul class="simple nested-toc-section">stopAll
+  <li><a class="reference" href="#stopAll%2CScheduler" title="stopAll(self: Scheduler)">stopAll(self: Scheduler)</a></li>
 
 </ul>
 <ul class="simple nested-toc-section">submit
@@ -214,7 +298,7 @@
   every(seconds=1, id=&quot;tick&quot;, throttle=1, async=true):
     echo(&quot;async tick &quot;, now())
     await sleepAsync(2000)
-  every(seconds=1, id=&quot;tick&quot;, throttle=1):
+  every(seconds=1, id=&quot;sync tick&quot;, throttle=1):
     echo(&quot;sync tick &quot;, now())</pre>
 </p>
     <div class="section" id="6">
@@ -231,8 +315,12 @@
   <span class="Keyword">case</span> <span class="Identifier">kind</span><span class="Operator">*</span><span class="Other">:</span> <a href="#BeaterKind"><span class="Identifier">BeaterKind</span></a>
   <span class="Keyword">of</span> <span class="Identifier">bkInterval</span><span class="Other">:</span>
     <span class="Identifier">interval</span><span class="Operator">*</span><span class="Other">:</span> <span class="Identifier">TimeInterval</span>
+    <span class="Identifier">jitter</span><span class="Operator">*</span><span class="Other">:</span> <span class="Identifier">TimeInterval</span>
   <span class="Keyword">of</span> <span class="Identifier">bkCron</span><span class="Other">:</span>
-    <span class="Identifier">cron</span><span class="Operator">*</span><span class="Other">:</span> <a href="cron/cron.html#Cron"><span class="Identifier">Cron</span></a></pre></dt>
+    <span class="Identifier">cron</span><span class="Operator">*</span><span class="Other">:</span> <a href="cron/cron.html#Cron"><span class="Identifier">Cron</span></a>
+    <span class="Identifier">timezone</span><span class="Operator">*</span><span class="Other">:</span> <span class="Identifier">Option</span><span class="Other">[</span><span class="Identifier">Timezone</span><span class="Other">]</span>
+  <span class="Keyword">of</span> <span class="Identifier">bkOnce</span><span class="Other">:</span>
+    <span class="Keyword">nil</span></pre></dt>
   <dd>
     
     Beater generates beats for the next runs.
@@ -249,7 +337,16 @@
 </div>
 <div id="BeaterKind">
   <dt><pre><a href="#BeaterKind"><span class="Identifier">BeaterKind</span></a> {.<span class="Identifier">pure</span>.} <span class="Other">=</span> <span class="Keyword">enum</span>
-  <span class="Identifier">bkInterval</span><span class="Other">,</span> <span class="Identifier">bkCron</span></pre></dt>
+  <span class="Identifier">bkInterval</span><span class="Other">,</span> <span class="Identifier">bkCron</span><span class="Other">,</span> <span class="Identifier">bkOnce</span></pre></dt>
+  <dd>
+    
+    
+    
+  </dd>
+</div>
+<div id="BeaterState">
+  <dt><pre><a href="#BeaterState"><span class="Identifier">BeaterState</span></a> {.<span class="Identifier">pure</span>.} <span class="Other">=</span> <span class="Keyword">enum</span>
+  <span class="Identifier">bsRunning</span><span class="Other">,</span> <span class="Identifier">bsPaused</span><span class="Other">,</span> <span class="Identifier">bsStopped</span></pre></dt>
   <dd>
     
     
@@ -258,6 +355,14 @@
 </div>
 <div id="BeaterThreadProc">
   <dt><pre><a href="#BeaterThreadProc"><span class="Identifier">BeaterThreadProc</span></a> <span class="Other">=</span> <span class="Keyword">proc</span> <span class="Other">(</span><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">void</span> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">gcsafe</span><span class="Other">,</span> </span><span class="Identifier">thread</span>.}</pre></dt>
+  <dd>
+    
+    
+    
+  </dd>
+</div>
+<div id="JobErrorHandler">
+  <dt><pre><a href="#JobErrorHandler"><span class="Identifier">JobErrorHandler</span></a> <span class="Other">=</span> <span class="Keyword">proc</span> <span class="Other">(</span><span class="Identifier">fut</span><span class="Other">:</span> <span class="Identifier">Future</span><span class="Other">[</span><span class="Identifier">void</span><span class="Other">]</span><span class="Other">)</span> {.<span class="Identifier">closure</span><span class="Other">,</span> <span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">gcsafe</span></span>.}</pre></dt>
   <dd>
     
     
@@ -275,7 +380,7 @@
 <div id="Settings">
   <dt><pre><a href="#Settings"><span class="Identifier">Settings</span></a> <span class="Other">=</span> <span class="Keyword">ref</span> <span class="Keyword">object</span>
   <span class="Identifier">appName</span><span class="Operator">*</span><span class="Other">:</span> <span class="Identifier">string</span>
-  <span class="Identifier">errorHandler</span><span class="Operator">*</span><span class="Other">:</span> <span class="Keyword">proc</span> <span class="Other">(</span><span class="Identifier">fut</span><span class="Other">:</span> <span class="Identifier">Future</span><span class="Other">[</span><span class="Identifier">void</span><span class="Other">]</span><span class="Other">)</span> {.<span class="Identifier">closure</span><span class="Other">,</span> <span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">gcsafe</span></span>.}</pre></dt>
+  <span class="Identifier">errorHandler</span><span class="Operator">*</span><span class="Other">:</span> <a href="#JobErrorHandler"><span class="Identifier">JobErrorHandler</span></a></pre></dt>
   <dd>
     
     
@@ -321,11 +426,32 @@
 </div>
 
 </div>
-<div id="fire-procs-all">
-  <div id="fire,Beater">
-  <dt><pre><span class="Keyword">proc</span> <a href="#fire%2CBeater"><span class="Identifier">fire</span></a><span class="Other">(</span><span class="Identifier">self</span><span class="Other">:</span> <a href="#Beater"><span class="Identifier">Beater</span></a><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">owned</span><span class="Other">(</span><span class="Identifier">Future</span><span class="Other">[</span><span class="Identifier">void</span><span class="Other">]</span><span class="Other">)</span> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">stackTrace</span><span class="Other">:</span> <span class="DecNumber">false</span><span class="Other">,</span>
-    <span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">Exception</span><span class="Other">,</span> <span class="Identifier">KeyError</span><span class="Other">,</span> <span class="Identifier">ValueError</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">RootEffect</span><span class="Other">,</span> <span class="Identifier">TimeEffect</span><span class="Other">]</span><span class="Other">,</span>
+<div id="failures-procs-all">
+  <div id="failures,Beater">
+  <dt><pre><span class="Keyword">proc</span> <a href="#failures%2CBeater"><span class="Identifier">failures</span></a><span class="Other">(</span><span class="Identifier">beater</span><span class="Other">:</span> <a href="#Beater"><span class="Identifier">Beater</span></a><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">int</span> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">forbids</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
+  <dd>
+    
+    Return the number of job failures recorded for this beater.
+    
+  </dd>
+</div>
+<div id="failures,Scheduler,string">
+  <dt><pre><span class="Keyword">proc</span> <a href="#failures%2CScheduler%2Cstring"><span class="Identifier">failures</span></a><span class="Other">(</span><span class="Identifier">self</span><span class="Other">:</span> <a href="#Scheduler"><span class="Identifier">Scheduler</span></a><span class="Other">;</span> <span class="Identifier">id</span><span class="Other">:</span> <span class="Identifier">string</span><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">int</span> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span>
     <span class="Identifier">forbids</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
+  <dd>
+    
+    Return the number of failures recorded for a registered job.
+    
+  </dd>
+</div>
+
+</div>
+<div id="fire-procs-all">
+  <div id="fire,Beater,JobErrorHandler">
+  <dt><pre><span class="Keyword">proc</span> <a href="#fire%2CBeater%2CJobErrorHandler"><span class="Identifier">fire</span></a><span class="Other">(</span><span class="Identifier">self</span><span class="Other">:</span> <a href="#Beater"><span class="Identifier">Beater</span></a><span class="Other">;</span> <span class="Identifier">errorHandler</span><span class="Other">:</span> <a href="#JobErrorHandler"><span class="Identifier">JobErrorHandler</span></a> <span class="Other">=</span> <span class="Keyword">nil</span><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">owned</span><span class="Other">(</span>
+    <span class="Identifier">Future</span><span class="Other">[</span><span class="Identifier">void</span><span class="Other">]</span><span class="Other">)</span> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">stackTrace</span><span class="Other">:</span> <span class="DecNumber">false</span><span class="Other">,</span>
+                    <span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">Exception</span><span class="Other">,</span> <span class="Identifier">ValueError</span><span class="Other">,</span> <span class="Identifier">KeyError</span><span class="Other">]</span><span class="Other">,</span>
+                    <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">RootEffect</span><span class="Other">,</span> <span class="Identifier">TimeEffect</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">forbids</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
   <dd>
     
     Fire beats as async loop until no beats can be scheduled.
@@ -341,17 +467,29 @@
   <dd>
     
     <p>Returns the next fire time of a task execution.</p>
-<p>For bkInterval, it has below rules:</p>
-<ul class="simple"><li>For the 1st run,<ul class="simple"><li>Choose <tt class="docutils literal"><span class="pre"><span class="Identifier">startTime</span></span></tt> if it hasn't come.</li>
-<li>Choose the next <tt class="docutils literal"><span class="pre"><span class="Identifier">startTime</span> <span class="Operator">+</span> <span class="Identifier">N</span> <span class="Operator">*</span> <span class="Identifier">interval</span></span></tt> that hasn't come.</li>
+<p>For bkInterval, it uses these rules:</p>
+<ul class="simple"><li>For the 1st run,<ul class="simple"><li>Choose <tt class="docutils literal"><span class="pre"><span class="Identifier">startTime</span></span></tt> when it is equal to or later than <tt class="docutils literal"><span class="pre"><span class="Identifier">now</span></span></tt>.</li>
+<li>Choose the next future <tt class="docutils literal"><span class="pre"><span class="Identifier">startTime</span> <span class="Operator">+</span> <span class="Identifier">N</span> <span class="Operator">*</span> <span class="Identifier">interval</span></span></tt> when <tt class="docutils literal"><span class="pre"><span class="Identifier">startTime</span></span></tt> is earlier than <tt class="docutils literal"><span class="pre"><span class="Identifier">now</span></span></tt>.</li>
 </ul>
 </li>
 <li>For the rest of runs,<ul class="simple"><li>Choose <tt class="docutils literal"><span class="pre"><span class="Identifier">prev</span> <span class="Operator">+</span> <span class="Identifier">interval</span></span></tt>.</li>
 </ul>
 </li>
 </ul>
-<p>If <tt class="docutils literal"><span class="pre"><span class="Identifier">self</span><span class="Operator">.</span><span class="Identifier">endTime</span></span></tt> is set and greater than the fire time, a <tt class="docutils literal"><span class="pre"><span class="Identifier">none</span><span class="Punctuation">(</span><span class="Identifier">DateTime</span><span class="Punctuation">)</span></span></tt> is returned.</p>
+<p>Cron beaters delegate to cron matching, optionally in their configured timezone. One-shot beaters return their scheduled time only while <tt class="docutils literal"><span class="pre"><span class="Identifier">prev</span></span></tt> is none.</p>
+<p>If <tt class="docutils literal"><span class="pre"><span class="Identifier">self</span><span class="Operator">.</span><span class="Identifier">endTime</span></span></tt> is set and the computed fire time is later than it, none(DateTime) is returned. A fire time exactly equal to <tt class="docutils literal"><span class="pre"><span class="Identifier">endTime</span></span></tt> is still allowed.</p>
 
+    
+  </dd>
+</div>
+
+</div>
+<div id="id-procs-all">
+  <div id="id,Beater">
+  <dt><pre><span class="Keyword">proc</span> <a href="#id%2CBeater"><span class="Identifier">id</span></a><span class="Other">(</span><span class="Identifier">beater</span><span class="Other">:</span> <a href="#Beater"><span class="Identifier">Beater</span></a><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">string</span> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">forbids</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
+  <dd>
+    
+    Return the identifier assigned to this beater.
     
   </dd>
 </div>
@@ -370,59 +508,83 @@
 
 </div>
 <div id="initBeater-procs-all">
-  <div id="initBeater,Cron,BeaterAsyncProc,Option[DateTime],Option[DateTime],string,int">
-  <dt><pre><span class="Keyword">proc</span> <a href="#initBeater%2CCron%2CBeaterAsyncProc%2COption%5BDateTime%5D%2COption%5BDateTime%5D%2Cstring%2Cint"><span class="Identifier">initBeater</span></a><span class="Other">(</span><span class="Identifier">cron</span><span class="Other">:</span> <a href="cron/cron.html#Cron"><span class="Identifier">Cron</span></a><span class="Other">;</span> <span class="Identifier">asyncProc</span><span class="Other">:</span> <a href="#BeaterAsyncProc"><span class="Identifier">BeaterAsyncProc</span></a><span class="Other">;</span>
+  <div id="initBeater,Cron,BeaterAsyncProc,Option[DateTime],Option[DateTime],string,int,JobErrorHandler,Option[Timezone]">
+  <dt><pre><span class="Keyword">proc</span> <a href="#initBeater%2CCron%2CBeaterAsyncProc%2COption%5BDateTime%5D%2COption%5BDateTime%5D%2Cstring%2Cint%2CJobErrorHandler%2COption%5BTimezone%5D"><span class="Identifier">initBeater</span></a><span class="Other">(</span><span class="Identifier">cron</span><span class="Other">:</span> <a href="cron/cron.html#Cron"><span class="Identifier">Cron</span></a><span class="Other">;</span> <span class="Identifier">asyncProc</span><span class="Other">:</span> <a href="#BeaterAsyncProc"><span class="Identifier">BeaterAsyncProc</span></a><span class="Other">;</span>
                 <span class="Identifier">startTime</span><span class="Other">:</span> <span class="Identifier">Option</span><span class="Other">[</span><span class="Identifier">DateTime</span><span class="Other">]</span> <span class="Other">=</span> <span class="Identifier">none</span><span class="Other">(</span><span class="Identifier">DateTime</span><span class="Other">)</span><span class="Other">;</span>
                 <span class="Identifier">endTime</span><span class="Other">:</span> <span class="Identifier">Option</span><span class="Other">[</span><span class="Identifier">DateTime</span><span class="Other">]</span> <span class="Other">=</span> <span class="Identifier">none</span><span class="Other">(</span><span class="Identifier">DateTime</span><span class="Other">)</span><span class="Other">;</span> <span class="Identifier">id</span><span class="Other">:</span> <span class="Identifier">string</span> <span class="Other">=</span> <span class="StringLit">&quot;&quot;</span><span class="Other">;</span>
-                <span class="Identifier">throttleNum</span><span class="Other">:</span> <span class="Identifier">int</span> <span class="Other">=</span> <span class="DecNumber">1</span><span class="Other">)</span><span class="Other">:</span> <a href="#Beater"><span class="Identifier">Beater</span></a> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">TimeEffect</span><span class="Other">]</span><span class="Other">,</span>
-    <span class="Identifier">forbids</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
+                <span class="Identifier">throttleNum</span><span class="Other">:</span> <span class="Identifier">int</span> <span class="Other">=</span> <span class="DecNumber">1</span><span class="Other">;</span> <span class="Identifier">errorHandler</span><span class="Other">:</span> <a href="#JobErrorHandler"><span class="Identifier">JobErrorHandler</span></a> <span class="Other">=</span> <span class="Keyword">nil</span><span class="Other">;</span>
+                <span class="Identifier">timezone</span><span class="Other">:</span> <span class="Identifier">Option</span><span class="Other">[</span><span class="Identifier">Timezone</span><span class="Other">]</span> <span class="Other">=</span> <span class="Identifier">none</span><span class="Other">(</span><span class="Identifier">Timezone</span><span class="Other">)</span><span class="Other">)</span><span class="Other">:</span> <a href="#Beater"><span class="Identifier">Beater</span></a> {.
+    <span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">TimeEffect</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">forbids</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
   <dd>
     
-    <p>Initialize a Beater, which kind is bkInterval.</p>
-<p>startTime and endTime are optional.</p>
+    <p>Initialize a Beater, which kind is bkCron.</p>
+<p>startTime, endTime, and timezone are optional. When timezone is set, cron matching is evaluated in that timezone and converted back to the caller's timezone for scheduling.</p>
 
     
   </dd>
 </div>
-<div id="initBeater,Cron,BeaterThreadProc,Option[DateTime],Option[DateTime],string,int">
-  <dt><pre><span class="Keyword">proc</span> <a href="#initBeater%2CCron%2CBeaterThreadProc%2COption%5BDateTime%5D%2COption%5BDateTime%5D%2Cstring%2Cint"><span class="Identifier">initBeater</span></a><span class="Other">(</span><span class="Identifier">cron</span><span class="Other">:</span> <a href="cron/cron.html#Cron"><span class="Identifier">Cron</span></a><span class="Other">;</span> <span class="Identifier">threadProc</span><span class="Other">:</span> <a href="#BeaterThreadProc"><span class="Identifier">BeaterThreadProc</span></a><span class="Other">;</span>
+<div id="initBeater,Cron,BeaterThreadProc,Option[DateTime],Option[DateTime],string,int,JobErrorHandler,Option[Timezone]">
+  <dt><pre><span class="Keyword">proc</span> <a href="#initBeater%2CCron%2CBeaterThreadProc%2COption%5BDateTime%5D%2COption%5BDateTime%5D%2Cstring%2Cint%2CJobErrorHandler%2COption%5BTimezone%5D"><span class="Identifier">initBeater</span></a><span class="Other">(</span><span class="Identifier">cron</span><span class="Other">:</span> <a href="cron/cron.html#Cron"><span class="Identifier">Cron</span></a><span class="Other">;</span> <span class="Identifier">threadProc</span><span class="Other">:</span> <a href="#BeaterThreadProc"><span class="Identifier">BeaterThreadProc</span></a><span class="Other">;</span>
                 <span class="Identifier">startTime</span><span class="Other">:</span> <span class="Identifier">Option</span><span class="Other">[</span><span class="Identifier">DateTime</span><span class="Other">]</span> <span class="Other">=</span> <span class="Identifier">none</span><span class="Other">(</span><span class="Identifier">DateTime</span><span class="Other">)</span><span class="Other">;</span>
                 <span class="Identifier">endTime</span><span class="Other">:</span> <span class="Identifier">Option</span><span class="Other">[</span><span class="Identifier">DateTime</span><span class="Other">]</span> <span class="Other">=</span> <span class="Identifier">none</span><span class="Other">(</span><span class="Identifier">DateTime</span><span class="Other">)</span><span class="Other">;</span> <span class="Identifier">id</span><span class="Other">:</span> <span class="Identifier">string</span> <span class="Other">=</span> <span class="StringLit">&quot;&quot;</span><span class="Other">;</span>
-                <span class="Identifier">throttleNum</span><span class="Other">:</span> <span class="Identifier">int</span> <span class="Other">=</span> <span class="DecNumber">1</span><span class="Other">)</span><span class="Other">:</span> <a href="#Beater"><span class="Identifier">Beater</span></a> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">TimeEffect</span><span class="Other">]</span><span class="Other">,</span>
-    <span class="Identifier">forbids</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
+                <span class="Identifier">throttleNum</span><span class="Other">:</span> <span class="Identifier">int</span> <span class="Other">=</span> <span class="DecNumber">1</span><span class="Other">;</span> <span class="Identifier">errorHandler</span><span class="Other">:</span> <a href="#JobErrorHandler"><span class="Identifier">JobErrorHandler</span></a> <span class="Other">=</span> <span class="Keyword">nil</span><span class="Other">;</span>
+                <span class="Identifier">timezone</span><span class="Other">:</span> <span class="Identifier">Option</span><span class="Other">[</span><span class="Identifier">Timezone</span><span class="Other">]</span> <span class="Other">=</span> <span class="Identifier">none</span><span class="Other">(</span><span class="Identifier">Timezone</span><span class="Other">)</span><span class="Other">)</span><span class="Other">:</span> <a href="#Beater"><span class="Identifier">Beater</span></a> {.
+    <span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">ValueError</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">TimeEffect</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">forbids</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
   <dd>
     
-    <p>Initialize a Beater, which kind is bkInterval.</p>
-<p>startTime and endTime are optional.</p>
+    <p>Initialize a Beater, which kind is bkCron.</p>
+<p>startTime, endTime, and timezone are optional. When timezone is set, cron matching is evaluated in that timezone and converted back to the caller's timezone for scheduling.</p>
 
     
   </dd>
 </div>
-<div id="initBeater,TimeInterval,BeaterAsyncProc,Option[DateTime],Option[DateTime],string,int">
-  <dt><pre><span class="Keyword">proc</span> <a href="#initBeater%2CTimeInterval%2CBeaterAsyncProc%2COption%5BDateTime%5D%2COption%5BDateTime%5D%2Cstring%2Cint"><span class="Identifier">initBeater</span></a><span class="Other">(</span><span class="Identifier">interval</span><span class="Other">:</span> <span class="Identifier">TimeInterval</span><span class="Other">;</span> <span class="Identifier">asyncProc</span><span class="Other">:</span> <a href="#BeaterAsyncProc"><span class="Identifier">BeaterAsyncProc</span></a><span class="Other">;</span>
+<div id="initBeater,TimeInterval,BeaterAsyncProc,Option[DateTime],Option[DateTime],string,int,JobErrorHandler,TimeInterval">
+  <dt><pre><span class="Keyword">proc</span> <a href="#initBeater%2CTimeInterval%2CBeaterAsyncProc%2COption%5BDateTime%5D%2COption%5BDateTime%5D%2Cstring%2Cint%2CJobErrorHandler%2CTimeInterval"><span class="Identifier">initBeater</span></a><span class="Other">(</span><span class="Identifier">interval</span><span class="Other">:</span> <span class="Identifier">TimeInterval</span><span class="Other">;</span> <span class="Identifier">asyncProc</span><span class="Other">:</span> <a href="#BeaterAsyncProc"><span class="Identifier">BeaterAsyncProc</span></a><span class="Other">;</span>
                 <span class="Identifier">startTime</span><span class="Other">:</span> <span class="Identifier">Option</span><span class="Other">[</span><span class="Identifier">DateTime</span><span class="Other">]</span> <span class="Other">=</span> <span class="Identifier">none</span><span class="Other">(</span><span class="Identifier">DateTime</span><span class="Other">)</span><span class="Other">;</span>
                 <span class="Identifier">endTime</span><span class="Other">:</span> <span class="Identifier">Option</span><span class="Other">[</span><span class="Identifier">DateTime</span><span class="Other">]</span> <span class="Other">=</span> <span class="Identifier">none</span><span class="Other">(</span><span class="Identifier">DateTime</span><span class="Other">)</span><span class="Other">;</span> <span class="Identifier">id</span><span class="Other">:</span> <span class="Identifier">string</span> <span class="Other">=</span> <span class="StringLit">&quot;&quot;</span><span class="Other">;</span>
-                <span class="Identifier">throttleNum</span><span class="Other">:</span> <span class="Identifier">int</span> <span class="Other">=</span> <span class="DecNumber">1</span><span class="Other">)</span><span class="Other">:</span> <a href="#Beater"><span class="Identifier">Beater</span></a> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">TimeEffect</span><span class="Other">]</span><span class="Other">,</span>
-    <span class="Identifier">forbids</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
+                <span class="Identifier">throttleNum</span><span class="Other">:</span> <span class="Identifier">int</span> <span class="Other">=</span> <span class="DecNumber">1</span><span class="Other">;</span> <span class="Identifier">errorHandler</span><span class="Other">:</span> <a href="#JobErrorHandler"><span class="Identifier">JobErrorHandler</span></a> <span class="Other">=</span> <span class="Keyword">nil</span><span class="Other">;</span>
+                <span class="Identifier">jitter</span><span class="Other">:</span> <span class="Identifier">TimeInterval</span> <span class="Other">=</span> <span class="Identifier">initTimeInterval</span><span class="Other">(</span><span class="Other">)</span><span class="Other">)</span><span class="Other">:</span> <a href="#Beater"><span class="Identifier">Beater</span></a> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span>
+    <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">TimeEffect</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">forbids</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
   <dd>
     
     <p>Initialize a Beater, which kind is bkInterval.</p>
-<p>startTime and endTime are optional.</p>
+<p>startTime, endTime, and jitter are optional. Jitter adds a random non-negative delay to each interval launch without changing the base interval cadence.</p>
 
     
   </dd>
 </div>
-<div id="initBeater,TimeInterval,BeaterThreadProc,Option[DateTime],Option[DateTime],string,int">
-  <dt><pre><span class="Keyword">proc</span> <a href="#initBeater%2CTimeInterval%2CBeaterThreadProc%2COption%5BDateTime%5D%2COption%5BDateTime%5D%2Cstring%2Cint"><span class="Identifier">initBeater</span></a><span class="Other">(</span><span class="Identifier">interval</span><span class="Other">:</span> <span class="Identifier">TimeInterval</span><span class="Other">;</span> <span class="Identifier">threadProc</span><span class="Other">:</span> <a href="#BeaterThreadProc"><span class="Identifier">BeaterThreadProc</span></a><span class="Other">;</span>
+<div id="initBeater,TimeInterval,BeaterThreadProc,Option[DateTime],Option[DateTime],string,int,JobErrorHandler,TimeInterval">
+  <dt><pre><span class="Keyword">proc</span> <a href="#initBeater%2CTimeInterval%2CBeaterThreadProc%2COption%5BDateTime%5D%2COption%5BDateTime%5D%2Cstring%2Cint%2CJobErrorHandler%2CTimeInterval"><span class="Identifier">initBeater</span></a><span class="Other">(</span><span class="Identifier">interval</span><span class="Other">:</span> <span class="Identifier">TimeInterval</span><span class="Other">;</span> <span class="Identifier">threadProc</span><span class="Other">:</span> <a href="#BeaterThreadProc"><span class="Identifier">BeaterThreadProc</span></a><span class="Other">;</span>
                 <span class="Identifier">startTime</span><span class="Other">:</span> <span class="Identifier">Option</span><span class="Other">[</span><span class="Identifier">DateTime</span><span class="Other">]</span> <span class="Other">=</span> <span class="Identifier">none</span><span class="Other">(</span><span class="Identifier">DateTime</span><span class="Other">)</span><span class="Other">;</span>
                 <span class="Identifier">endTime</span><span class="Other">:</span> <span class="Identifier">Option</span><span class="Other">[</span><span class="Identifier">DateTime</span><span class="Other">]</span> <span class="Other">=</span> <span class="Identifier">none</span><span class="Other">(</span><span class="Identifier">DateTime</span><span class="Other">)</span><span class="Other">;</span> <span class="Identifier">id</span><span class="Other">:</span> <span class="Identifier">string</span> <span class="Other">=</span> <span class="StringLit">&quot;&quot;</span><span class="Other">;</span>
-                <span class="Identifier">throttleNum</span><span class="Other">:</span> <span class="Identifier">int</span> <span class="Other">=</span> <span class="DecNumber">1</span><span class="Other">)</span><span class="Other">:</span> <a href="#Beater"><span class="Identifier">Beater</span></a> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">TimeEffect</span><span class="Other">]</span><span class="Other">,</span>
-    <span class="Identifier">forbids</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
+                <span class="Identifier">throttleNum</span><span class="Other">:</span> <span class="Identifier">int</span> <span class="Other">=</span> <span class="DecNumber">1</span><span class="Other">;</span> <span class="Identifier">errorHandler</span><span class="Other">:</span> <a href="#JobErrorHandler"><span class="Identifier">JobErrorHandler</span></a> <span class="Other">=</span> <span class="Keyword">nil</span><span class="Other">;</span>
+                <span class="Identifier">jitter</span><span class="Other">:</span> <span class="Identifier">TimeInterval</span> <span class="Other">=</span> <span class="Identifier">initTimeInterval</span><span class="Other">(</span><span class="Other">)</span><span class="Other">)</span><span class="Other">:</span> <a href="#Beater"><span class="Identifier">Beater</span></a> {.
+    <span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">ValueError</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">TimeEffect</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">forbids</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
   <dd>
     
     <p>Initialize a Beater, which kind is bkInterval.</p>
-<p>startTime and endTime are optional.</p>
+<p>startTime, endTime, and jitter are optional. Jitter adds a random non-negative delay to each interval launch without changing the base interval cadence.</p>
 
+    
+  </dd>
+</div>
+<div id="initBeater,DateTime,BeaterAsyncProc,string,int,JobErrorHandler">
+  <dt><pre><span class="Keyword">proc</span> <a href="#initBeater%2CDateTime%2CBeaterAsyncProc%2Cstring%2Cint%2CJobErrorHandler"><span class="Identifier">initBeater</span></a><span class="Other">(</span><span class="Identifier">time</span><span class="Other">:</span> <span class="Identifier">DateTime</span><span class="Other">;</span> <span class="Identifier">asyncProc</span><span class="Other">:</span> <a href="#BeaterAsyncProc"><span class="Identifier">BeaterAsyncProc</span></a><span class="Other">;</span> <span class="Identifier">id</span><span class="Other">:</span> <span class="Identifier">string</span> <span class="Other">=</span> <span class="StringLit">&quot;&quot;</span><span class="Other">;</span>
+                <span class="Identifier">throttleNum</span><span class="Other">:</span> <span class="Identifier">int</span> <span class="Other">=</span> <span class="DecNumber">1</span><span class="Other">;</span> <span class="Identifier">errorHandler</span><span class="Other">:</span> <a href="#JobErrorHandler"><span class="Identifier">JobErrorHandler</span></a> <span class="Other">=</span> <span class="Keyword">nil</span><span class="Other">)</span><span class="Other">:</span> <a href="#Beater"><span class="Identifier">Beater</span></a> {.
+    <span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">TimeEffect</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">forbids</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
+  <dd>
+    
+    Initialize a one-shot Beater, which launches once at time.
+    
+  </dd>
+</div>
+<div id="initBeater,DateTime,BeaterThreadProc,string,int,JobErrorHandler">
+  <dt><pre><span class="Keyword">proc</span> <a href="#initBeater%2CDateTime%2CBeaterThreadProc%2Cstring%2Cint%2CJobErrorHandler"><span class="Identifier">initBeater</span></a><span class="Other">(</span><span class="Identifier">time</span><span class="Other">:</span> <span class="Identifier">DateTime</span><span class="Other">;</span> <span class="Identifier">threadProc</span><span class="Other">:</span> <a href="#BeaterThreadProc"><span class="Identifier">BeaterThreadProc</span></a><span class="Other">;</span> <span class="Identifier">id</span><span class="Other">:</span> <span class="Identifier">string</span> <span class="Other">=</span> <span class="StringLit">&quot;&quot;</span><span class="Other">;</span>
+                <span class="Identifier">throttleNum</span><span class="Other">:</span> <span class="Identifier">int</span> <span class="Other">=</span> <span class="DecNumber">1</span><span class="Other">;</span> <span class="Identifier">errorHandler</span><span class="Other">:</span> <a href="#JobErrorHandler"><span class="Identifier">JobErrorHandler</span></a> <span class="Other">=</span> <span class="Keyword">nil</span><span class="Other">)</span><span class="Other">:</span> <a href="#Beater"><span class="Identifier">Beater</span></a> {.
+    <span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">ValueError</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">TimeEffect</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">forbids</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
+  <dd>
+    
+    Initialize a one-shot Beater, which launches once at time.
     
   </dd>
 </div>
@@ -451,13 +613,140 @@
 </div>
 
 </div>
+<div id="jobState-procs-all">
+  <div id="jobState,Scheduler,string">
+  <dt><pre><span class="Keyword">proc</span> <a href="#jobState%2CScheduler%2Cstring"><span class="Identifier">jobState</span></a><span class="Other">(</span><span class="Identifier">self</span><span class="Other">:</span> <a href="#Scheduler"><span class="Identifier">Scheduler</span></a><span class="Other">;</span> <span class="Identifier">id</span><span class="Other">:</span> <span class="Identifier">string</span><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">Option</span><span class="Other">[</span><a href="#BeaterState"><span class="Identifier">BeaterState</span></a><span class="Other">]</span> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span>
+    <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">forbids</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
+  <dd>
+    
+    Return the lifecycle state for a registered job.
+    
+  </dd>
+</div>
+
+</div>
+<div id="lastError-procs-all">
+  <div id="lastError,Beater">
+  <dt><pre><span class="Keyword">proc</span> <a href="#lastError%2CBeater"><span class="Identifier">lastError</span></a><span class="Other">(</span><span class="Identifier">beater</span><span class="Other">:</span> <a href="#Beater"><span class="Identifier">Beater</span></a><span class="Other">)</span><span class="Other">:</span> <span class="Keyword">ref</span> <span class="Identifier">Exception</span> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span>
+    <span class="Identifier">forbids</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
+  <dd>
+    
+    Return the most recent job error, or nil if no job has failed.
+    
+  </dd>
+</div>
+<div id="lastError,Scheduler,string">
+  <dt><pre><span class="Keyword">proc</span> <a href="#lastError%2CScheduler%2Cstring"><span class="Identifier">lastError</span></a><span class="Other">(</span><span class="Identifier">self</span><span class="Other">:</span> <a href="#Scheduler"><span class="Identifier">Scheduler</span></a><span class="Other">;</span> <span class="Identifier">id</span><span class="Other">:</span> <span class="Identifier">string</span><span class="Other">)</span><span class="Other">:</span> <span class="Keyword">ref</span> <span class="Identifier">Exception</span> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span>
+    <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">forbids</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
+  <dd>
+    
+    Return the most recent error for a registered job, or nil.
+    
+  </dd>
+</div>
+
+</div>
+<div id="lastErrorAt-procs-all">
+  <div id="lastErrorAt,Beater">
+  <dt><pre><span class="Keyword">proc</span> <a href="#lastErrorAt%2CBeater"><span class="Identifier">lastErrorAt</span></a><span class="Other">(</span><span class="Identifier">beater</span><span class="Other">:</span> <a href="#Beater"><span class="Identifier">Beater</span></a><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">Option</span><span class="Other">[</span><span class="Identifier">DateTime</span><span class="Other">]</span> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span>
+    <span class="Identifier">forbids</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
+  <dd>
+    
+    Return when this beater most recently recorded a job error.
+    
+  </dd>
+</div>
+<div id="lastErrorAt,Scheduler,string">
+  <dt><pre><span class="Keyword">proc</span> <a href="#lastErrorAt%2CScheduler%2Cstring"><span class="Identifier">lastErrorAt</span></a><span class="Other">(</span><span class="Identifier">self</span><span class="Other">:</span> <a href="#Scheduler"><span class="Identifier">Scheduler</span></a><span class="Other">;</span> <span class="Identifier">id</span><span class="Other">:</span> <span class="Identifier">string</span><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">Option</span><span class="Other">[</span><span class="Identifier">DateTime</span><span class="Other">]</span> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span>
+    <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">forbids</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
+  <dd>
+    
+    Return when a registered job most recently recorded an error.
+    
+  </dd>
+</div>
+
+</div>
+<div id="lastRun-procs-all">
+  <div id="lastRun,Beater">
+  <dt><pre><span class="Keyword">proc</span> <a href="#lastRun%2CBeater"><span class="Identifier">lastRun</span></a><span class="Other">(</span><span class="Identifier">beater</span><span class="Other">:</span> <a href="#Beater"><span class="Identifier">Beater</span></a><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">Option</span><span class="Other">[</span><span class="Identifier">DateTime</span><span class="Other">]</span> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span>
+    <span class="Identifier">forbids</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
+  <dd>
+    
+    Return the last time this beater launched a job.
+    
+  </dd>
+</div>
+<div id="lastRun,Scheduler,string">
+  <dt><pre><span class="Keyword">proc</span> <a href="#lastRun%2CScheduler%2Cstring"><span class="Identifier">lastRun</span></a><span class="Other">(</span><span class="Identifier">self</span><span class="Other">:</span> <a href="#Scheduler"><span class="Identifier">Scheduler</span></a><span class="Other">;</span> <span class="Identifier">id</span><span class="Other">:</span> <span class="Identifier">string</span><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">Option</span><span class="Other">[</span><span class="Identifier">DateTime</span><span class="Other">]</span> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span>
+    <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">forbids</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
+  <dd>
+    
+    Return the last run time for a registered job.
+    
+  </dd>
+</div>
+
+</div>
+<div id="listJobs-procs-all">
+  <div id="listJobs,Scheduler">
+  <dt><pre><span class="Keyword">proc</span> <a href="#listJobs%2CScheduler"><span class="Identifier">listJobs</span></a><span class="Other">(</span><span class="Identifier">self</span><span class="Other">:</span> <a href="#Scheduler"><span class="Identifier">Scheduler</span></a><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">seq</span><span class="Other">[</span><span class="Identifier">string</span><span class="Other">]</span> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">forbids</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
+  <dd>
+    
+    Return all non-empty registered job identifiers.
+    
+  </dd>
+</div>
+
+</div>
 <div id="newSettings-procs-all">
-  <div id="newSettings,string,proc(Future[void])">
-  <dt><pre><span class="Keyword">proc</span> <a href="#newSettings%2Cstring%2Cproc%28Future%5Bvoid%5D%29"><span class="Identifier">newSettings</span></a><span class="Other">(</span><span class="Identifier">appName</span> <span class="Other">=</span> <span class="StringLit">&quot;&quot;</span><span class="Other">;</span> <span class="Identifier">errorHandler</span><span class="Other">:</span> <span class="Keyword">proc</span> <span class="Other">(</span><span class="Identifier">fut</span><span class="Other">:</span> <span class="Identifier">Future</span><span class="Other">[</span><span class="Identifier">void</span><span class="Other">]</span><span class="Other">)</span> {.<span class="Identifier">closure</span><span class="Other">,</span>
-    <span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">gcsafe</span></span>.} <span class="Other">=</span> <span class="Keyword">nil</span><span class="Other">)</span><span class="Other">:</span> <a href="#Settings"><span class="Identifier">Settings</span></a> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">forbids</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
+  <div id="newSettings,string,JobErrorHandler">
+  <dt><pre><span class="Keyword">proc</span> <a href="#newSettings%2Cstring%2CJobErrorHandler"><span class="Identifier">newSettings</span></a><span class="Other">(</span><span class="Identifier">appName</span> <span class="Other">=</span> <span class="StringLit">&quot;&quot;</span><span class="Other">;</span> <span class="Identifier">errorHandler</span><span class="Other">:</span> <a href="#JobErrorHandler"><span class="Identifier">JobErrorHandler</span></a> <span class="Other">=</span> <span class="Keyword">nil</span><span class="Other">)</span><span class="Other">:</span> <a href="#Settings"><span class="Identifier">Settings</span></a> {.
+    <span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">forbids</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
   <dd>
     
     
+    
+  </dd>
+</div>
+
+</div>
+<div id="nextRun-procs-all">
+  <div id="nextRun,Beater">
+  <dt><pre><span class="Keyword">proc</span> <a href="#nextRun%2CBeater"><span class="Identifier">nextRun</span></a><span class="Other">(</span><span class="Identifier">beater</span><span class="Other">:</span> <a href="#Beater"><span class="Identifier">Beater</span></a><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">Option</span><span class="Other">[</span><span class="Identifier">DateTime</span><span class="Other">]</span> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span>
+    <span class="Identifier">forbids</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
+  <dd>
+    
+    Return the next scheduled run time for this beater.
+    
+  </dd>
+</div>
+<div id="nextRun,Scheduler,string">
+  <dt><pre><span class="Keyword">proc</span> <a href="#nextRun%2CScheduler%2Cstring"><span class="Identifier">nextRun</span></a><span class="Other">(</span><span class="Identifier">self</span><span class="Other">:</span> <a href="#Scheduler"><span class="Identifier">Scheduler</span></a><span class="Other">;</span> <span class="Identifier">id</span><span class="Other">:</span> <span class="Identifier">string</span><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">Option</span><span class="Other">[</span><span class="Identifier">DateTime</span><span class="Other">]</span> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span>
+    <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">forbids</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
+  <dd>
+    
+    Return the next run time for a registered job.
+    
+  </dd>
+</div>
+
+</div>
+<div id="pause-procs-all">
+  <div id="pause,Beater">
+  <dt><pre><span class="Keyword">proc</span> <a href="#pause%2CBeater"><span class="Identifier">pause</span></a><span class="Other">(</span><span class="Identifier">beater</span><span class="Other">:</span> <a href="#Beater"><span class="Identifier">Beater</span></a><span class="Other">)</span> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">forbids</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
+  <dd>
+    
+    Pause future job launches for this beater.
+    
+  </dd>
+</div>
+<div id="pause,Scheduler,string">
+  <dt><pre><span class="Keyword">proc</span> <a href="#pause%2CScheduler%2Cstring"><span class="Identifier">pause</span></a><span class="Other">(</span><span class="Identifier">self</span><span class="Other">:</span> <a href="#Scheduler"><span class="Identifier">Scheduler</span></a><span class="Other">;</span> <span class="Identifier">id</span><span class="Other">:</span> <span class="Identifier">string</span><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">bool</span> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span>
+    <span class="Identifier">forbids</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
+  <dd>
+    
+    Pause a registered job by identifier.
     
   </dd>
 </div>
@@ -470,6 +759,46 @@
   <dd>
     
     Register a beater.
+    
+  </dd>
+</div>
+
+</div>
+<div id="resume-procs-all">
+  <div id="resume,Beater">
+  <dt><pre><span class="Keyword">proc</span> <a href="#resume%2CBeater"><span class="Identifier">resume</span></a><span class="Other">(</span><span class="Identifier">beater</span><span class="Other">:</span> <a href="#Beater"><span class="Identifier">Beater</span></a><span class="Other">)</span> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">TimeEffect</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">forbids</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
+  <dd>
+    
+    Resume job launches for this beater.
+    
+  </dd>
+</div>
+<div id="resume,Scheduler,string">
+  <dt><pre><span class="Keyword">proc</span> <a href="#resume%2CScheduler%2Cstring"><span class="Identifier">resume</span></a><span class="Other">(</span><span class="Identifier">self</span><span class="Other">:</span> <a href="#Scheduler"><span class="Identifier">Scheduler</span></a><span class="Other">;</span> <span class="Identifier">id</span><span class="Other">:</span> <span class="Identifier">string</span><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">bool</span> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">TimeEffect</span><span class="Other">]</span><span class="Other">,</span>
+    <span class="Identifier">forbids</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
+  <dd>
+    
+    Resume a registered job by identifier.
+    
+  </dd>
+</div>
+
+</div>
+<div id="runningCount-procs-all">
+  <div id="runningCount,Beater">
+  <dt><pre><span class="Keyword">proc</span> <a href="#runningCount%2CBeater"><span class="Identifier">runningCount</span></a><span class="Other">(</span><span class="Identifier">beater</span><span class="Other">:</span> <a href="#Beater"><span class="Identifier">Beater</span></a><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">int</span> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">forbids</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
+  <dd>
+    
+    Return the number of currently running jobs for this beater.
+    
+  </dd>
+</div>
+<div id="runningCount,Scheduler,string">
+  <dt><pre><span class="Keyword">proc</span> <a href="#runningCount%2CScheduler%2Cstring"><span class="Identifier">runningCount</span></a><span class="Other">(</span><span class="Identifier">self</span><span class="Other">:</span> <a href="#Scheduler"><span class="Identifier">Scheduler</span></a><span class="Other">;</span> <span class="Identifier">id</span><span class="Other">:</span> <span class="Identifier">string</span><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">int</span> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span>
+    <span class="Identifier">forbids</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
+  <dd>
+    
+    Return the number of currently running jobs for a registered job.
     
   </dd>
 </div>
@@ -490,11 +819,52 @@
 <div id="start-procs-all">
   <div id="start,Scheduler">
   <dt><pre><span class="Keyword">proc</span> <a href="#start%2CScheduler"><span class="Identifier">start</span></a><span class="Other">(</span><span class="Identifier">self</span><span class="Other">:</span> <a href="#Scheduler"><span class="Identifier">Scheduler</span></a><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">owned</span><span class="Other">(</span><span class="Identifier">Future</span><span class="Other">[</span><span class="Identifier">void</span><span class="Other">]</span><span class="Other">)</span> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">stackTrace</span><span class="Other">:</span> <span class="DecNumber">false</span><span class="Other">,</span>
-    <span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">Exception</span><span class="Other">,</span> <span class="Identifier">KeyError</span><span class="Other">,</span> <span class="Identifier">ValueError</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">RootEffect</span><span class="Other">,</span> <span class="Identifier">TimeEffect</span><span class="Other">]</span><span class="Other">,</span>
+    <span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">Exception</span><span class="Other">,</span> <span class="Identifier">ValueError</span><span class="Other">,</span> <span class="Identifier">KeyError</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">RootEffect</span><span class="Other">,</span> <span class="Identifier">TimeEffect</span><span class="Other">]</span><span class="Other">,</span>
     <span class="Identifier">forbids</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
   <dd>
     
     Start the scheduler.
+    
+  </dd>
+</div>
+
+</div>
+<div id="state-procs-all">
+  <div id="state,Beater">
+  <dt><pre><span class="Keyword">proc</span> <a href="#state%2CBeater"><span class="Identifier">state</span></a><span class="Other">(</span><span class="Identifier">beater</span><span class="Other">:</span> <a href="#Beater"><span class="Identifier">Beater</span></a><span class="Other">)</span><span class="Other">:</span> <a href="#BeaterState"><span class="Identifier">BeaterState</span></a> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">forbids</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
+  <dd>
+    
+    Return the current lifecycle state for this beater.
+    
+  </dd>
+</div>
+
+</div>
+<div id="stop-procs-all">
+  <div id="stop,Beater">
+  <dt><pre><span class="Keyword">proc</span> <a href="#stop%2CBeater"><span class="Identifier">stop</span></a><span class="Other">(</span><span class="Identifier">beater</span><span class="Other">:</span> <a href="#Beater"><span class="Identifier">Beater</span></a><span class="Other">)</span> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">forbids</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
+  <dd>
+    
+    Stop this beater permanently.
+    
+  </dd>
+</div>
+<div id="stop,Scheduler,string">
+  <dt><pre><span class="Keyword">proc</span> <a href="#stop%2CScheduler%2Cstring"><span class="Identifier">stop</span></a><span class="Other">(</span><span class="Identifier">self</span><span class="Other">:</span> <a href="#Scheduler"><span class="Identifier">Scheduler</span></a><span class="Other">;</span> <span class="Identifier">id</span><span class="Other">:</span> <span class="Identifier">string</span><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">bool</span> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">forbids</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
+  <dd>
+    
+    Stop a registered job by identifier.
+    
+  </dd>
+</div>
+
+</div>
+<div id="stopAll-procs-all">
+  <div id="stopAll,Scheduler">
+  <dt><pre><span class="Keyword">proc</span> <a href="#stopAll%2CScheduler"><span class="Identifier">stopAll</span></a><span class="Other">(</span><span class="Identifier">self</span><span class="Other">:</span> <a href="#Scheduler"><span class="Identifier">Scheduler</span></a><span class="Other">)</span> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">forbids</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
+  <dd>
+    
+    Stop all registered jobs.
     
   </dd>
 </div>
@@ -577,7 +947,7 @@
       <div class="twelve-columns footer">
         <span class="nim-sprite"></span>
         <br>
-        <small style="color: var(--hint);">Made with Nim. Generated: 2026-07-08 20:11:14 UTC</small>
+        <small style="color: var(--hint);">Made with Nim. Generated: 2026-07-09 12:57:20 UTC</small>
       </div>
     </div>
   </div>

@@ -28,8 +28,8 @@ scheduler myBasicSched:
 
 proc main() =
   echo "Starting basic interval scheduler example..."
-  # Start the scheduler in parallel and waitFor its execution
-  waitFor myBasicSched.start()
+  # Start the scheduler and keep the event loop running.
+  myBasicSched.serve()
 
 if isMainModule:
   main()
