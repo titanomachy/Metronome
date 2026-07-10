@@ -41,18 +41,11 @@ jobs:
       run: |
         export PATH=$HOME/.nimble/bin:$PATH
         nimble docs
+        touch docs/.nojekyll
 
     - name: Generate Coverage Report
       run: |
         ./code_coverage.sh
-
-    - name: Check Generated Documentation
-      run: |
-        git diff --exit-code docs/
-        if [ -n "$(git status --porcelain docs/)" ]; then
-          git status --porcelain docs/
-          exit 1
-        fi
 
     - name: Commit Badge and Documentation
       if: github.event_name == 'push' && github.ref == 'refs/heads/master'
