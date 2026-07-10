@@ -3,7 +3,7 @@
 [![CI](https://github.com/titanomachy/nim-schedules/actions/workflows/ci.yml/badge.svg)](https://github.com/titanomachy/nim-schedules/actions/workflows/ci.yml)
 [![Coverage](docs/coverage.svg)](https://github.com/titanomachy/nim-schedules/actions)
 
-[@soasme](https://github.com/soasme) originally created the base of this library, thank you Ju. You can find it [here](https://github.com/soasme/nim-schedules).
+[@soasme](https://github.com/soasme) originally created the base of this library. You can find it [here](https://github.com/soasme/nim-schedules).
 
 A Nim scheduler library that lets you kick off jobs at regular intervals.
 
@@ -346,6 +346,7 @@ running job futures for that scheduled job.
 
 Released:
 
+* v0.3.1, 10 Jul, 2026, Add async job error handling, job lifecycle and introspection APIs, one-shot and timezone-aware scheduling, interval jitter, and expanded tests, CI, and documentation.
 * v0.3.0, 8 Jul, 2026, Upgrade to Nim 2.2.10, resolve warnings, fix weekday index/last bugs, expand tests, and add CI coverage.
 * v0.2.0, 22 Jul, 2021, New feature: cron.
 * v0.1.2, 8 Jul, 2021, Bugfix: the first job schedule should be after startTime.

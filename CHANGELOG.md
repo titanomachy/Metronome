@@ -2,6 +2,24 @@
 
 This release modernizes `nim-schedules` to support Nim 2.2.10, resolves compiler warnings, resolves critical cron weekday matcher bugs, restructures and expands the test suite, configures local/CI code coverage, and introduces new examples.
 
+## v0.3.1 - 2026-07-10
+
+### Scheduler Reliability and Observability
+- Added scheduler-level and per-job error handlers for async jobs. Failed jobs no longer stop the scheduler loop; their most recent error, failure time, and failure count are retained for inspection.
+- Added job lifecycle controls: `pause(id)`, `resume(id)`, `stop(id)`, and `stopAll()`. Paused interval jobs resume from the current time rather than replaying missed intervals.
+- Added job introspection APIs: `listJobs()`, `jobState(id)`, `lastRun(id)`, `nextRun(id)`, `lastError(id)`, `lastErrorAt(id)`, `failures(id)`, and `runningCount(id)`.
+- ID-based lifecycle and introspection APIs require one unique, non-empty job ID; missing, anonymous, and duplicate IDs are handled safely.
+
+### New Scheduling Capabilities
+- Added one-shot scheduling with `at(time=..., id=...)`, plus `initBeater(DateTime, ...)` overloads for direct use.
+- Added optional `timezone=` support for cron macros and direct cron beaters.
+- Added optional non-negative interval `jitter` to spread launches over a time window without changing the base interval cadence.
+
+### Quality, CI, and Documentation
+- Added deterministic regression coverage for `fireTime` boundaries, interval rollover, and cron month/year boundaries, plus weekday `L` and `#` behavior.
+- Centralized coverage-report generation for local development and CI, and made CI verify that generated documentation is current.
+- Expanded the README, module documentation, and runnable examples for async jobs, timezone-aware cron, fire-time calculations, and one-shot jobs.
+
 ## Key Changes
 
 ### 1. Codebase Modernization (Nim 2.2.10 Compatibility)
