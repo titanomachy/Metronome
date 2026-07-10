@@ -404,6 +404,14 @@ test "5 4 * * 1#3 (3rd Monday)":
     "2000-02-21 04:05:00",
   )
 
+test "5 4 * * 1#5 skips months without a 5th Monday":
+  let cron = newCron(minute="5", hour="4", day_of_week="1#5")
+  # February 2026 has only four Mondays. March 2026 has a 5th Monday on Mar 30.
+  cron.checkCron(
+    "2026-02-01 00:00:00",
+    "2026-03-30 04:05:00",
+  )
+
 test "5 4 * * 5L (last Friday)":
   let cron = newCron(minute="5", hour="4", day_of_week="5L")
   # Last Friday of Jan 2000 is Jan 28th.
@@ -417,3 +425,23 @@ test "5 4 * * 5L (last Friday)":
     "2000-02-25 04:05:00",
   )
 
+test "5 4 * * 5L across year boundary":
+  let cron = newCron(minute="5", hour="4", day_of_week="5L")
+  cron.checkCron(
+    "2026-12-26 00:00:00",
+    "2027-01-29 04:05:00",
+  )
+
+test "0 0 1 1 * 2027 near year boundary":
+  let cron = newCron(minute="0", hour="0", day_of_month="1", month="1", year="2027")
+  cron.checkCron(
+    "2026-12-31 23:59:59",
+    "2027-01-01 00:00:00",
+  )
+
+test "0 0 29 2 * across leap year boundary":
+  let cron = newCron(minute="0", hour="0", day_of_month="29", month="2")
+  cron.checkCron(
+    "2023-03-01 00:00:00",
+    "2024-02-29 00:00:00",
+  )

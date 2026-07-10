@@ -12,7 +12,7 @@
 ##       every(seconds=1, id="tick", async=true):
 ##         echo("async tick ", now())
 ##         await sleepAsync(2000)
-##       every(seconds=1, id="tick"):
+##       every(seconds=1, id="sync tick"):
 ##         echo("sync tick ", now())
 ##
 ## The code enables you:
@@ -48,6 +48,8 @@
 ##
 ## * Schedule thread proc every minute.
 ## * Schedule async proc every minute.
+## * Pass timezone=utc() or another Timezone to evaluate cron fields in that
+##   zone.
 ##
 ## Run::
 ##
@@ -58,6 +60,18 @@
 ## * Don't forget --threads:on when compiling your application.
 ## * The library schedules all jobs at a regular interval, but it'll be impacted by your system load.
 ##
+## ## Schedule Once
+##
+## Use at(time=...) inside a schedules or scheduler block to schedule a job one time.::
+##
+##     import schedules, times, asyncdispatch
+##
+##     schedules:
+##       at(time=now()+initDuration(minutes=5), id="warm-cache", async=true):
+##         echo("warming cache")
+##
+## One-shot jobs stop after their first launch.
+##
 ## ## Throttling
 ##
 ## By default, only one instance of the job is to be scheduled at the same time. If a job hasn't finished but the next run time has come, the next job will not be scheduled.
@@ -67,7 +81,7 @@
 ##     import schedules, times, asyncdispatch
 ##
 ##     schedules:
-##       every(seconds=1, id="tick", throttle=2, async=true):
+##       every(seconds=1, id="async tick", throttle=2, async=true):
 ##         echo("async tick ", now())
 ##         await sleepAsync(2000)
 ##       every(seconds=1, id="tick", throttle=2):
@@ -126,6 +140,120 @@
 ##       waitFor demoSetRange.start()
 ##
 ## Parameters startTime and endTime can be used independently. For example, you can set startTime only, or set endTime only.
+##
+## ## Calculate Next Run Times
+##
+## Use fireTime to inspect the next scheduled run without starting a scheduler.
+## This is useful for tests, dashboards, and checking interval or cron behavior
+## deterministically.::
+##
+##     import schedules, times, options, asyncdispatch
+##
+##     proc noop(): Future[void] {.async.} = discard
+##
+##     let current = dateTime(2026, mJan, 1, 12, 35, 0, 0, utc())
+##     let beater = initBeater(
+##       initTimeInterval(minutes=10),
+##       noop,
+##       startTime=some(dateTime(2026, mJan, 1, 12, 0, 0, 0, utc()))
+##     )
+##
+##     echo beater.fireTime(none(DateTime), current).get()
+##
+## ## Error Handling
+##
+## Schedulers keep running when a scheduled async job fails. Failed job futures
+## are recorded on the beater and can be passed to either a scheduler-level error
+## handler or a job-level error handler. Job-level handlers take precedence.
+## Error handlers are supported for async jobs only; thread-backed sync jobs do
+## not propagate exceptions through their returned futures.
+##
+## Example usage::
+##
+##     import schedules, asyncdispatch, times
+##
+##     proc handleSchedulerError(fut: Future[void]) {.gcsafe.} =
+##       echo("job failed: ", fut.readError().msg)
+##
+##     proc handleJobError(fut: Future[void]) {.gcsafe.} =
+##       echo("specific job failed: ", fut.readError().msg)
+##
+##     let sched = initScheduler(newSettings(errorHandler=handleSchedulerError))
+##     sched.register(initBeater(
+##       initTimeInterval(seconds=1),
+##       proc(): Future[void] {.async.} =
+##         raise newException(ValueError, "boom"),
+##       id="failing-job",
+##       errorHandler=handleJobError
+##     ))
+##
+##     asyncCheck sched.start()
+##
+## The every and cron macros also support job-level handlers on async jobs
+## using onError=::
+##
+##     scheduler sched:
+##       every(seconds=1, id="failing-job", async=true, onError=handleJobError):
+##         raise newException(ValueError, "boom")
+##
+## Use lastError(id), lastErrorAt(id), and failures(id) to inspect failure state
+## for a registered job.
+##
+## ## Interval Jitter
+##
+## Interval jobs can add a non-negative random delay to each computed run time
+## with jitter. This is useful when many jobs or application instances would
+## otherwise launch at the same instant. Jitter is only supported for interval
+## schedules, not cron schedules.
+##
+## Example usage::
+##
+##     import schedules, asyncdispatch, times
+##
+##     scheduler sched:
+##       every(minutes=5, id="spread-out", async=true, jitter=initTimeInterval(seconds=30)):
+##         echo("tick ", now())
+##
+## Direct initBeater calls accept the same jitter parameter::
+##
+##     let beater = initBeater(
+##       initTimeInterval(minutes=5),
+##       proc(): Future[void] {.async.} = discard,
+##       id="spread-out",
+##       jitter=initTimeInterval(seconds=30)
+##     )
+##
+## ## Job Controls
+##
+## Schedulers can pause, resume, and stop registered jobs by id. Anonymous jobs
+## can still be registered, but ID-based controls only work when an id uniquely
+## identifies one registered job.
+##
+## pause(id) prevents future launches for that job. Already-running job futures
+## are not cancelled. While paused, nextRun(id) is cleared; when resumed,
+## interval jobs schedule from the current time instead of replaying every
+## interval missed during the pause.
+##
+## resume(id) returns a paused job to normal scheduling. stop(id) permanently
+## stops one job and clears its next run time. stopAll() permanently stops all
+## registered jobs. The ID-based control procs return true when exactly one job
+## matches the id and false when the id is missing, empty, or ambiguous.
+##
+## Example usage::
+##
+##     import schedules, asyncdispatch, times
+##
+##     let sched = initScheduler(newSettings())
+##     sched.register(initBeater(
+##       initTimeInterval(seconds=10),
+##       proc(): Future[void] {.async.} = discard,
+##       id="tick"
+##     ))
+##
+##     discard sched.pause("tick")
+##     discard sched.resume("tick")
+##     discard sched.stop("tick")
+##     sched.stopAll()
 
 
 import schedules/scheduler
@@ -139,16 +267,32 @@ export initThrottler
 export throttled
 export submit
 export BeaterKind
+export BeaterState
 export Beater
 export `$`
 export initBeater
+export id
+export state
+export lastRun
+export nextRun
+export lastError
+export lastErrorAt
+export failures
+export runningCount
+export pause
+export resume
+export stop
 export fireTime
 export fire
+export JobErrorHandler
 export Settings
 export newSettings
 export Scheduler
 export initScheduler
 export register
+export listJobs
+export jobState
+export stopAll
 export idle
 export start
 export serve

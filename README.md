@@ -3,14 +3,21 @@
 [![CI](https://github.com/titanomachy/nim-schedules/actions/workflows/ci.yml/badge.svg)](https://github.com/titanomachy/nim-schedules/actions/workflows/ci.yml)
 [![Coverage](docs/coverage.svg)](https://github.com/titanomachy/nim-schedules/actions)
 
+[@soasme](https://github.com/soasme) originally created the base of this library, thank you Ju. You can find it [here](https://github.com/soasme/nim-schedules).
+
 A Nim scheduler library that lets you kick off jobs at regular intervals.
 
-Read the documentation [online](https://titanomachy.github.io/nim-schedules/schedules.html) or [locally](docs/schedules.html).
+Read the [documentation](https://titanomachy.github.io/nim-schedules/schedules.html).
 
 Features:
 
 * Simple to use API for scheduling jobs.
 * Support scheduling both async and sync procs.
+* Interval, cron, and one-shot scheduling.
+* Timezone-aware cron schedules.
+* Job-level and scheduler-level async error handling.
+* Pause, resume, stop, and inspect registered jobs by id.
+* Optional interval jitter to spread out job launches.
 * Lightweight and zero dependencies.
 
 ## Getting Started
@@ -69,6 +76,44 @@ schedules:
 
 1. Schedule thread proc every minute.
 2. Schedule async proc every minute.
+
+Cron schedules can also be evaluated in a specific Nim `Timezone` by passing
+`timezone=`.
+
+```nim
+import schedules, times, asyncdispatch, options
+
+schedules:
+  cron(hour="9", minute="0", id="utc-daily", async=true, timezone=utc()):
+    echo("09:00 UTC ", now())
+```
+
+Direct `initBeater` calls accept `timezone=some(myTimezone)`.
+
+### One-Shot Jobs
+
+Use `at` inside a `schedules` or `scheduler` block to schedule a job once at a
+specific `DateTime`. One-shot jobs stop after their first launch. If a pending
+one-shot job is paused and resumed before or after its scheduled time, it
+remains pending and launches once.
+
+```nim
+import schedules, times, asyncdispatch
+
+schedules:
+  at(time=now()+initDuration(minutes=5), id="warm-cache", async=true):
+    echo("warming cache")
+```
+
+Direct `initBeater` calls can also schedule a single run:
+
+```nim
+let beater = initBeater(
+  now()+initDuration(minutes=5),
+  proc(): Future[void] {.async.} = discard,
+  id="warm-cache"
+)
+```
 
 ### Throttling
 
@@ -148,6 +193,154 @@ when isMainModule:
 
 Parameters `startTime` and `endTime` can be used independently. For example,
 you can set startTime only, or set endTime only.
+
+### Calculate Next Run Times
+
+Use `fireTime` to inspect the next scheduled run without starting a scheduler.
+This is useful for tests, dashboards, and checking interval or cron behavior
+deterministically.
+
+```nim
+import schedules, times, options, asyncdispatch
+
+proc noop(): Future[void] {.async.} = discard
+
+let current = dateTime(2026, mJan, 1, 12, 35, 0, 0, utc())
+let beater = initBeater(
+  initTimeInterval(minutes=10),
+  noop,
+  startTime=some(dateTime(2026, mJan, 1, 12, 0, 0, 0, utc()))
+)
+
+echo beater.fireTime(none(DateTime), current).get()
+```
+
+### Error Handling
+
+Schedulers keep running when a scheduled async job fails. Failed job futures are
+recorded on the beater and can be passed to either a scheduler-level error
+handler or a job-level error handler. Job-level handlers take precedence.
+Error handlers are supported for async jobs only; thread-backed sync jobs do not
+propagate exceptions through their returned futures.
+
+```nim
+import schedules, asyncdispatch, times
+
+proc handleSchedulerError(fut: Future[void]) {.gcsafe.} =
+  echo("job failed: ", fut.readError().msg)
+
+proc handleJobError(fut: Future[void]) {.gcsafe.} =
+  echo("specific job failed: ", fut.readError().msg)
+
+let sched = initScheduler(newSettings(errorHandler=handleSchedulerError))
+sched.register(initBeater(
+  initTimeInterval(seconds=1),
+  proc(): Future[void] {.async.} =
+    raise newException(ValueError, "boom"),
+  id="failing-job",
+  errorHandler=handleJobError
+))
+
+asyncCheck sched.start()
+```
+
+The `every` and `cron` macros also support job-level handlers on async jobs
+using `onError=`.
+
+```nim
+scheduler sched:
+  every(seconds=1, id="failing-job", async=true, onError=handleJobError):
+    raise newException(ValueError, "boom")
+```
+
+Use `lastError(id)`, `lastErrorAt(id)`, and `failures(id)` to inspect failure
+state for a registered job.
+
+### Interval Jitter
+
+Interval jobs can add a non-negative random delay to each computed run time with
+`jitter`. This is useful when many jobs or application instances would otherwise
+launch at the same instant. Jitter is only supported for interval schedules, not
+cron schedules.
+
+```nim
+import schedules, asyncdispatch, times
+
+scheduler sched:
+  every(minutes=5, id="spread-out", async=true, jitter=initTimeInterval(seconds=30)):
+    echo("tick ", now())
+```
+
+The example above runs every five minutes plus a random delay from `0` to `30`
+seconds. Direct `initBeater` calls accept the same `jitter` parameter:
+
+```nim
+let beater = initBeater(
+  initTimeInterval(minutes=5),
+  proc(): Future[void] {.async.} = discard,
+  id="spread-out",
+  jitter=initTimeInterval(seconds=30)
+)
+```
+
+### Job Controls
+
+Schedulers can pause, resume, and stop registered jobs by id. Anonymous jobs can
+still be registered, but ID-based controls only work when an id uniquely
+identifies one registered job.
+
+`pause(id)` prevents future launches for that job. Already-running job futures
+are not cancelled. While paused, `nextRun(id)` is cleared; when resumed, interval
+jobs schedule from the current time instead of replaying every interval missed
+during the pause.
+
+`resume(id)` returns a paused job to normal scheduling. `stop(id)` permanently
+stops one job and clears its next run time. `stopAll()` permanently stops all
+registered jobs. The ID-based control procs return `true` when exactly one job
+matches the id and `false` when the id is missing, empty, or ambiguous.
+
+```nim
+import schedules, asyncdispatch, times
+
+let sched = initScheduler(newSettings())
+sched.register(initBeater(initTimeInterval(seconds=10), proc(): Future[void] {.async.} = discard, id="tick"))
+
+discard sched.pause("tick")
+discard sched.resume("tick")
+discard sched.stop("tick")
+sched.stopAll()
+```
+
+### Job Introspection
+
+Schedulers expose runtime state for dashboards, logs, tests, and health checks.
+Like controls, ID-based introspection only returns job data when exactly one
+registered job has that non-empty id. Missing, empty, anonymous, or duplicate ids
+return `none(...)`, `nil`, or `0` depending on the accessor.
+
+```nim
+import schedules, asyncdispatch, times, options
+
+let sched = initScheduler(newSettings())
+sched.register(initBeater(initTimeInterval(seconds=10), proc(): Future[void] {.async.} = discard, id="tick"))
+
+echo sched.listJobs()
+
+echo sched.jobState("tick")
+echo sched.lastRun("tick")
+echo sched.nextRun("tick")
+echo sched.lastError("tick")
+echo sched.lastErrorAt("tick")
+echo sched.failures("tick")
+echo sched.runningCount("tick")
+```
+
+`listJobs()` returns all non-empty registered ids, including duplicates. Use
+`jobState(id)` to inspect whether a job is running, paused, or stopped.
+`lastRun(id)` and `nextRun(id)` return `Option[DateTime]` values. `lastError(id)`
+returns the most recent exception or `nil`; `lastErrorAt(id)` and `failures(id)`
+report when and how often the job failed. `runningCount(id)` reports currently
+running job futures for that scheduled job.
 
 ## ChangeLog
 

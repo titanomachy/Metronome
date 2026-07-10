@@ -22,8 +22,8 @@ scheduler myCronSched:
 
 proc main() =
   echo "Starting advanced cron scheduler example..."
-  # Start the scheduler in parallel and waitFor its execution
-  waitFor myCronSched.start()
+  # Start the scheduler and keep the event loop running.
+  myCronSched.serve()
 
 if isMainModule:
   main()
