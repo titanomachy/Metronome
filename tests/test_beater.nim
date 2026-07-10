@@ -7,6 +7,15 @@ proc dummyAsync(): Future[void] {.async.} = discard
 proc failingAsync(): Future[void] {.async.} =
   raise newException(ValueError, "boom")
 
+proc synchronouslyFailing(): Future[void] =
+  raise newException(ValueError, "synchronous boom")
+
+proc nilFuture(): Future[void] =
+  nil
+
+proc shortThread() {.thread, gcsafe.} =
+  discard
+
 var beaterHandlerCalls = 0
 var fallbackHandlerCalls = 0
 var pauseLaunches = 0
@@ -160,6 +169,29 @@ test "OnceBeater.fireTime":
   check beater.fireTime(none(DateTime), scheduled - initTimeInterval(hours=1)).get() == scheduled
   check beater.fireTime(some(scheduled), scheduled).isNone
 
+test "Throttler rejects invalid limits":
+  expect ValueError:
+    discard initThrottler(0)
+
+test "Throttler releases capacity after failed futures finish":
+  let throttler = initThrottler()
+  let fut = newFuture[void]("failed throttle test")
+
+  throttler.submit(fut)
+  check throttler.throttled
+
+  fut.fail(newException(ValueError, "boom"))
+  check not throttler.throttled
+
+test "Thread-backed jobs promptly report completion":
+  proc main(): Future[int] {.async.} =
+    let beater = initBeater(now(), shortThread, id="short-thread")
+    await beater.fire()
+    await sleepAsync(100)
+    result = beater.runningCount
+
+  check waitFor(main()) == 0
+
 test "Beater.fire records failed jobs":
   let current = now().utc()
   let beater = initBeater(
@@ -178,6 +210,44 @@ test "Beater.fire records failed jobs":
   check beater.lastError.msg == "boom"
   check beater.lastErrorAt.isSome
   check beater.failures > 0
+  check beater.runningCount == 0
+
+test "Beater.fire survives failures raised while invoking jobs":
+  let current = now().utc()
+  let beater = initBeater(
+    initTimeInterval(milliseconds=1),
+    synchronouslyFailing,
+    startTime=some(current),
+    endTime=some(current + initTimeInterval(milliseconds=5)),
+    id="synchronously-failing",
+    errorHandler=beaterHandler
+  )
+
+  beaterHandlerCalls = 0
+  waitFor beater.fire()
+
+  check beater.failures > 1
+  check beater.failures == beaterHandlerCalls
+  check beater.lastError.msg == "synchronous boom"
+  check beater.runningCount == 0
+
+test "Beater.fire records nil job futures without stopping its loop":
+  let current = now().utc()
+  let beater = initBeater(
+    initTimeInterval(milliseconds=1),
+    nilFuture,
+    startTime=some(current),
+    endTime=some(current + initTimeInterval(milliseconds=5)),
+    id="nil-future",
+    errorHandler=beaterHandler
+  )
+
+  beaterHandlerCalls = 0
+  waitFor beater.fire()
+
+  check beater.failures > 1
+  check beater.failures == beaterHandlerCalls
+  check beater.lastError.msg == "scheduled job returned a nil future"
   check beater.runningCount == 0
 
 test "Beater job error handler takes precedence":

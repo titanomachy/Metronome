@@ -37,7 +37,8 @@ proc toAsync(p: BeaterThreadProc): BeaterAsyncProc =
       var thread: Thread[void]
       createThread(thread, p)
       while thread.running:
-        await sleepAsync(1000)
+        await sleepAsync(10)
+      joinThread(thread)
 
 type
   Settings* = ref object
@@ -62,6 +63,8 @@ proc initThrottler*(num: int = 1): Throttler =
   ## Initialize the total number of beats allowed to be scheduled.
   ## By default, it's 1.
   ## If it's greater than 1, then more than one beats can be scheduled simultaneously.
+  if num < 1:
+    raise newException(ValueError, "throttle must be at least 1")
   var beats: seq[Future[void]] = @[]
   Throttler(num: num, beats: beats)
 
@@ -100,7 +103,6 @@ type
     failureCount: int
     errorHandler: JobErrorHandler
     runningBeats: int
-    threadBacked: bool
     pauseGeneration: int
     resumeTime: Option[DateTime]
     jitterRand: Rand
@@ -221,7 +223,6 @@ proc initBeater*(
     failureCount: 0,
     errorHandler: errorHandler,
     runningBeats: 0,
-    threadBacked: false,
     pauseGeneration: 0,
     resumeTime: none(DateTime),
     jitterRand: newJitterRand(),
@@ -261,7 +262,6 @@ proc initBeater*(
     failureCount: 0,
     errorHandler: errorHandler,
     runningBeats: 0,
-    threadBacked: true,
     pauseGeneration: 0,
     resumeTime: none(DateTime),
     jitterRand: newJitterRand(),
@@ -301,7 +301,6 @@ proc initBeater*(
     failureCount: 0,
     errorHandler: errorHandler,
     runningBeats: 0,
-    threadBacked: true,
     pauseGeneration: 0,
     resumeTime: none(DateTime),
     jitterRand: newJitterRand(),
@@ -339,7 +338,6 @@ proc initBeater*(
     failureCount: 0,
     errorHandler: errorHandler,
     runningBeats: 0,
-    threadBacked: false,
     pauseGeneration: 0,
     resumeTime: none(DateTime),
     jitterRand: newJitterRand(),
@@ -368,7 +366,6 @@ proc initBeater*(
     failureCount: 0,
     errorHandler: errorHandler,
     runningBeats: 0,
-    threadBacked: false,
     pauseGeneration: 0,
     resumeTime: none(DateTime),
     jitterRand: newJitterRand(),
@@ -399,7 +396,6 @@ proc initBeater*(
     failureCount: 0,
     errorHandler: errorHandler,
     runningBeats: 0,
-    threadBacked: true,
     pauseGeneration: 0,
     resumeTime: none(DateTime),
     jitterRand: newJitterRand(),
@@ -513,6 +509,23 @@ proc watch(self: Beater, fut: Future[void], errorHandler: JobErrorHandler) =
           error("\"", self.id, "\" failed: ", self.lastErrorRef.msg)
   )
 
+proc failedJobFuture(exc: ref Exception): Future[void] =
+  result = newFuture[void]("schedules.failedJobFuture")
+  result.fail(exc)
+
+proc launch(self: Beater): Future[void] =
+  ## Normalize failures raised while invoking a job to failed futures so they
+  ## follow the same tracking, throttling, and error-handler path as async
+  ## failures.
+  try:
+    result = self.beaterProc()
+    if result.isNil:
+      result = failedJobFuture(
+        newException(ValueError, "scheduled job returned a nil future")
+      )
+  except CatchableError as exc:
+    result = failedJobFuture(exc)
+
 proc fire*(
   self: Beater,
   errorHandler: JobErrorHandler = nil
@@ -550,7 +563,7 @@ proc fire*(
       continue
 
     if not self.throttler.throttled:
-      let fut = self.beaterProc()
+      let fut = self.launch()
       self.lastRunTime = some(now())
       self.throttler.submit(fut)
       self.watch(fut, errorHandler)
