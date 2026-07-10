@@ -7,3 +7,6 @@ NOTES.md
 coverage.info
 coverage_html/
 PLANS/
+nimble.develop
+nimble.paths
+nimbledeps

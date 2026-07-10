@@ -24,3 +24,4 @@ task docs, "Generate HTML documentation":
   echo "Generating HTML documentation..."
   rmDir("docs")
   exec "nim doc --project --outDir:docs --threads:on --index:on src/schedules.nim"
+  

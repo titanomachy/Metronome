@@ -18,7 +18,6 @@ Features:
 * Job-level and scheduler-level async error handling.
 * Pause, resume, stop, and inspect registered jobs by id.
 * Optional interval jitter to spread out job launches.
-* Lightweight and zero dependencies.
 
 ## Getting Started
 
