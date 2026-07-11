@@ -449,22 +449,16 @@ nimble test
 
 ### Code Coverage
 
-To run the tests with code coverage instrumentation:
+Install `lcov` and `genhtml`, then run the canonical coverage task:
 
 ```bash
 nimble coverage
 ```
 
-This will run all tests and compile intermediate C files in `nimcache/`. If you have `lcov` and `genhtml` installed, you can generate an HTML coverage report:
-
-```bash
-lcov --ignore-errors inconsistent,unused,mismatch,missing,source,empty,gcov --capture --directory nimcache --output-file coverage.info
-lcov --ignore-errors inconsistent,unused,mismatch,missing,source,empty,gcov --extract coverage.info "$PWD/src/*" --output-file coverage.info
-genhtml --ignore-errors range --filter missing coverage.info --output-directory coverage_html
-scripts/coverage_badge.sh coverage.info docs/coverage.svg
-```
-
-Open `coverage_html/index.html` in your browser to view the coverage report.
+The task runs all instrumented tests, captures and filters project coverage,
+generates `coverage_html/index.html`, and updates `docs/coverage.svg`. CI invokes
+the same task and fails when the committed badge does not match the generated
+coverage result.
 
 ### Documentation
 
