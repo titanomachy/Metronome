@@ -3,64 +3,64 @@ nim	logger	schedules/scheduler.html#logger	var logger		19
 nim	JobErrorHandler	schedules/scheduler.html#JobErrorHandler	type JobErrorHandler		23
 nim	BeaterAsyncProc	schedules/scheduler.html#BeaterAsyncProc	type BeaterAsyncProc		26
 nim	BeaterThreadProc	schedules/scheduler.html#BeaterThreadProc	type BeaterThreadProc		29
-nim	Settings	schedules/scheduler.html#Settings	type Settings		43
-nim	newSettings	schedules/scheduler.html#newSettings,string,JobErrorHandler	proc newSettings(appName = ""; errorHandler: JobErrorHandler = nil): Settings		47
-nim	Throttler	schedules/scheduler.html#Throttler	type Throttler		57
-nim	initThrottler	schedules/scheduler.html#initThrottler,int	proc initThrottler(num: int = 1): Throttler		61
-nim	throttled	schedules/scheduler.html#throttled,Throttler	proc throttled(self: Throttler): bool		68
-nim	submit	schedules/scheduler.html#submit,Throttler,Future[void]	proc submit(self: Throttler; fut: Future[void])		73
-nim	BeaterKind	schedules/scheduler.html#BeaterKind	enum BeaterKind		79
-nim	BeaterState	schedules/scheduler.html#BeaterState	enum BeaterState		84
-nim	Beater	schedules/scheduler.html#Beater	type Beater		89
-nim	`$`	schedules/scheduler.html#$,Beater	proc `$`(beater: Beater): string		117
-nim	id	schedules/scheduler.html#id,Beater	proc id(beater: Beater): string		126
-nim	state	schedules/scheduler.html#state,Beater	proc state(beater: Beater): BeaterState		130
-nim	lastRun	schedules/scheduler.html#lastRun,Beater	proc lastRun(beater: Beater): Option[DateTime]		134
-nim	nextRun	schedules/scheduler.html#nextRun,Beater	proc nextRun(beater: Beater): Option[DateTime]		138
-nim	lastError	schedules/scheduler.html#lastError,Beater	proc lastError(beater: Beater): ref Exception		142
-nim	lastErrorAt	schedules/scheduler.html#lastErrorAt,Beater	proc lastErrorAt(beater: Beater): Option[DateTime]		146
-nim	failures	schedules/scheduler.html#failures,Beater	proc failures(beater: Beater): int		150
-nim	runningCount	schedules/scheduler.html#runningCount,Beater	proc runningCount(beater: Beater): int		154
-nim	pause	schedules/scheduler.html#pause,Beater	proc pause(beater: Beater)		158
-nim	resume	schedules/scheduler.html#resume,Beater	proc resume(beater: Beater)		165
-nim	stop	schedules/scheduler.html#stop,Beater	proc stop(beater: Beater)		171
-nim	initBeater	schedules/scheduler.html#initBeater,TimeInterval,BeaterAsyncProc,Option[DateTime],Option[DateTime],string,int,JobErrorHandler,TimeInterval	proc initBeater(interval: TimeInterval; asyncProc: BeaterAsyncProc;\n           startTime: Option[DateTime] = none(DateTime);\n           endTime: Option[DateTime] = none(DateTime); id: string = "";\n           throttleNum: int = 1; errorHandler: JobErrorHandler = nil;\n           jitter: TimeInterval = initTimeInterval()): Beater		194
-nim	initBeater	schedules/scheduler.html#initBeater,TimeInterval,BeaterThreadProc,Option[DateTime],Option[DateTime],string,int,JobErrorHandler,TimeInterval	proc initBeater(interval: TimeInterval; threadProc: BeaterThreadProc;\n           startTime: Option[DateTime] = none(DateTime);\n           endTime: Option[DateTime] = none(DateTime); id: string = "";\n           throttleNum: int = 1; errorHandler: JobErrorHandler = nil;\n           jitter: TimeInterval = initTimeInterval()): Beater		232
+nim	Settings	schedules/scheduler.html#Settings	type Settings		44
+nim	newSettings	schedules/scheduler.html#newSettings,string,JobErrorHandler	proc newSettings(appName = ""; errorHandler: JobErrorHandler = nil): Settings		48
+nim	Throttler	schedules/scheduler.html#Throttler	type Throttler		58
+nim	initThrottler	schedules/scheduler.html#initThrottler,int	proc initThrottler(num: int = 1): Throttler		62
+nim	throttled	schedules/scheduler.html#throttled,Throttler	proc throttled(self: Throttler): bool		71
+nim	submit	schedules/scheduler.html#submit,Throttler,Future[void]	proc submit(self: Throttler; fut: Future[void])		76
+nim	BeaterKind	schedules/scheduler.html#BeaterKind	enum BeaterKind		82
+nim	BeaterState	schedules/scheduler.html#BeaterState	enum BeaterState		87
+nim	Beater	schedules/scheduler.html#Beater	type Beater		92
+nim	`$`	schedules/scheduler.html#$,Beater	proc `$`(beater: Beater): string		119
+nim	id	schedules/scheduler.html#id,Beater	proc id(beater: Beater): string		128
+nim	state	schedules/scheduler.html#state,Beater	proc state(beater: Beater): BeaterState		132
+nim	lastRun	schedules/scheduler.html#lastRun,Beater	proc lastRun(beater: Beater): Option[DateTime]		136
+nim	nextRun	schedules/scheduler.html#nextRun,Beater	proc nextRun(beater: Beater): Option[DateTime]		140
+nim	lastError	schedules/scheduler.html#lastError,Beater	proc lastError(beater: Beater): ref Exception		144
+nim	lastErrorAt	schedules/scheduler.html#lastErrorAt,Beater	proc lastErrorAt(beater: Beater): Option[DateTime]		148
+nim	failures	schedules/scheduler.html#failures,Beater	proc failures(beater: Beater): int		152
+nim	runningCount	schedules/scheduler.html#runningCount,Beater	proc runningCount(beater: Beater): int		156
+nim	pause	schedules/scheduler.html#pause,Beater	proc pause(beater: Beater)		160
+nim	resume	schedules/scheduler.html#resume,Beater	proc resume(beater: Beater)		167
+nim	stop	schedules/scheduler.html#stop,Beater	proc stop(beater: Beater)		173
+nim	initBeater	schedules/scheduler.html#initBeater,TimeInterval,BeaterAsyncProc,Option[DateTime],Option[DateTime],string,int,JobErrorHandler,TimeInterval	proc initBeater(interval: TimeInterval; asyncProc: BeaterAsyncProc;\n           startTime: Option[DateTime] = none(DateTime);\n           endTime: Option[DateTime] = none(DateTime); id: string = "";\n           throttleNum: int = 1; errorHandler: JobErrorHandler = nil;\n           jitter: TimeInterval = initTimeInterval()): Beater		196
+nim	initBeater	schedules/scheduler.html#initBeater,TimeInterval,BeaterThreadProc,Option[DateTime],Option[DateTime],string,int,JobErrorHandler,TimeInterval	proc initBeater(interval: TimeInterval; threadProc: BeaterThreadProc;\n           startTime: Option[DateTime] = none(DateTime);\n           endTime: Option[DateTime] = none(DateTime); id: string = "";\n           throttleNum: int = 1; errorHandler: JobErrorHandler = nil;\n           jitter: TimeInterval = initTimeInterval()): Beater		233
 nim	initBeater	schedules/scheduler.html#initBeater,Cron,BeaterThreadProc,Option[DateTime],Option[DateTime],string,int,JobErrorHandler,Option[Timezone]	proc initBeater(cron: Cron; threadProc: BeaterThreadProc;\n           startTime: Option[DateTime] = none(DateTime);\n           endTime: Option[DateTime] = none(DateTime); id: string = "";\n           throttleNum: int = 1; errorHandler: JobErrorHandler = nil;\n           timezone: Option[Timezone] = none(Timezone)): Beater		272
-nim	initBeater	schedules/scheduler.html#initBeater,Cron,BeaterAsyncProc,Option[DateTime],Option[DateTime],string,int,JobErrorHandler,Option[Timezone]	proc initBeater(cron: Cron; asyncProc: BeaterAsyncProc;\n           startTime: Option[DateTime] = none(DateTime);\n           endTime: Option[DateTime] = none(DateTime); id: string = "";\n           throttleNum: int = 1; errorHandler: JobErrorHandler = nil;\n           timezone: Option[Timezone] = none(Timezone)): Beater		312
-nim	initBeater	schedules/scheduler.html#initBeater,DateTime,BeaterAsyncProc,string,int,JobErrorHandler	proc initBeater(time: DateTime; asyncProc: BeaterAsyncProc; id: string = "";\n           throttleNum: int = 1; errorHandler: JobErrorHandler = nil): Beater		350
-nim	initBeater	schedules/scheduler.html#initBeater,DateTime,BeaterThreadProc,string,int,JobErrorHandler	proc initBeater(time: DateTime; threadProc: BeaterThreadProc; id: string = "";\n           throttleNum: int = 1; errorHandler: JobErrorHandler = nil): Beater		379
-nim	fireTime	schedules/scheduler.html#fireTime,Beater,Option[DateTime],DateTime	proc fireTime(self: Beater; prev: Option[DateTime]; now: DateTime): Option[DateTime]		451
-nim	fire	schedules/scheduler.html#fire,Beater,JobErrorHandler	proc fire(self: Beater; errorHandler: JobErrorHandler = nil): owned(Future[void])		519
-nim	Scheduler	schedules/scheduler.html#Scheduler	type Scheduler		565
-nim	initScheduler	schedules/scheduler.html#initScheduler,Settings	proc initScheduler(settings: Settings): Scheduler		570
-nim	register	schedules/scheduler.html#register,Scheduler,Beater	proc register(self: Scheduler; beater: Beater)		591
-nim	listJobs	schedules/scheduler.html#listJobs,Scheduler	proc listJobs(self: Scheduler): seq[string]		595
-nim	pause	schedules/scheduler.html#pause,Scheduler,string	proc pause(self: Scheduler; id: string): bool		601
-nim	resume	schedules/scheduler.html#resume,Scheduler,string	proc resume(self: Scheduler; id: string): bool		609
-nim	stop	schedules/scheduler.html#stop,Scheduler,string	proc stop(self: Scheduler; id: string): bool		617
-nim	stopAll	schedules/scheduler.html#stopAll,Scheduler	proc stopAll(self: Scheduler)		625
-nim	jobState	schedules/scheduler.html#jobState,Scheduler,string	proc jobState(self: Scheduler; id: string): Option[BeaterState]		630
-nim	lastRun	schedules/scheduler.html#lastRun,Scheduler,string	proc lastRun(self: Scheduler; id: string): Option[DateTime]		637
-nim	nextRun	schedules/scheduler.html#nextRun,Scheduler,string	proc nextRun(self: Scheduler; id: string): Option[DateTime]		644
-nim	lastError	schedules/scheduler.html#lastError,Scheduler,string	proc lastError(self: Scheduler; id: string): ref Exception		651
-nim	lastErrorAt	schedules/scheduler.html#lastErrorAt,Scheduler,string	proc lastErrorAt(self: Scheduler; id: string): Option[DateTime]		658
-nim	failures	schedules/scheduler.html#failures,Scheduler,string	proc failures(self: Scheduler; id: string): int		665
-nim	runningCount	schedules/scheduler.html#runningCount,Scheduler,string	proc runningCount(self: Scheduler; id: string): int		672
-nim	idle	schedules/scheduler.html#idle,Scheduler	proc idle(self: Scheduler): owned(Future[void])		679
-nim	start	schedules/scheduler.html#start,Scheduler	proc start(self: Scheduler): owned(Future[void])		684
-nim	serve	schedules/scheduler.html#serve,Scheduler	proc serve(self: Scheduler)		691
-nim	waitFor	schedules/scheduler.html#waitFor,Scheduler	proc waitFor(self: Scheduler)		697
-nim	scheduler	schedules/scheduler.html#scheduler.m,untyped,untyped	macro scheduler(sched: untyped; body: untyped)		982
-nim	schedules	schedules/scheduler.html#schedules.m,untyped	macro schedules(body: untyped): untyped		989
-nimgrp	pause	schedules/scheduler.html#pause-procs-all	proc		158
-nimgrp	failures	schedules/scheduler.html#failures-procs-all	proc		150
-nimgrp	nextrun	schedules/scheduler.html#nextRun-procs-all	proc		138
-nimgrp	initbeater	schedules/scheduler.html#initBeater-procs-all	proc		194
-nimgrp	lasterrorat	schedules/scheduler.html#lastErrorAt-procs-all	proc		146
-nimgrp	lasterror	schedules/scheduler.html#lastError-procs-all	proc		142
-nimgrp	runningcount	schedules/scheduler.html#runningCount-procs-all	proc		154
-nimgrp	stop	schedules/scheduler.html#stop-procs-all	proc		171
-nimgrp	resume	schedules/scheduler.html#resume-procs-all	proc		165
-nimgrp	lastrun	schedules/scheduler.html#lastRun-procs-all	proc		134
+nim	initBeater	schedules/scheduler.html#initBeater,Cron,BeaterAsyncProc,Option[DateTime],Option[DateTime],string,int,JobErrorHandler,Option[Timezone]	proc initBeater(cron: Cron; asyncProc: BeaterAsyncProc;\n           startTime: Option[DateTime] = none(DateTime);\n           endTime: Option[DateTime] = none(DateTime); id: string = "";\n           throttleNum: int = 1; errorHandler: JobErrorHandler = nil;\n           timezone: Option[Timezone] = none(Timezone)): Beater		311
+nim	initBeater	schedules/scheduler.html#initBeater,DateTime,BeaterAsyncProc,string,int,JobErrorHandler	proc initBeater(time: DateTime; asyncProc: BeaterAsyncProc; id: string = "";\n           throttleNum: int = 1; errorHandler: JobErrorHandler = nil): Beater		348
+nim	initBeater	schedules/scheduler.html#initBeater,DateTime,BeaterThreadProc,string,int,JobErrorHandler	proc initBeater(time: DateTime; threadProc: BeaterThreadProc; id: string = "";\n           throttleNum: int = 1; errorHandler: JobErrorHandler = nil): Beater		376
+nim	fireTime	schedules/scheduler.html#fireTime,Beater,Option[DateTime],DateTime	proc fireTime(self: Beater; prev: Option[DateTime]; now: DateTime): Option[DateTime]		447
+nim	fire	schedules/scheduler.html#fire,Beater,JobErrorHandler	proc fire(self: Beater; errorHandler: JobErrorHandler = nil): owned(Future[void])		532
+nim	Scheduler	schedules/scheduler.html#Scheduler	type Scheduler		578
+nim	initScheduler	schedules/scheduler.html#initScheduler,Settings	proc initScheduler(settings: Settings): Scheduler		583
+nim	register	schedules/scheduler.html#register,Scheduler,Beater	proc register(self: Scheduler; beater: Beater)		604
+nim	listJobs	schedules/scheduler.html#listJobs,Scheduler	proc listJobs(self: Scheduler): seq[string]		608
+nim	pause	schedules/scheduler.html#pause,Scheduler,string	proc pause(self: Scheduler; id: string): bool		614
+nim	resume	schedules/scheduler.html#resume,Scheduler,string	proc resume(self: Scheduler; id: string): bool		622
+nim	stop	schedules/scheduler.html#stop,Scheduler,string	proc stop(self: Scheduler; id: string): bool		630
+nim	stopAll	schedules/scheduler.html#stopAll,Scheduler	proc stopAll(self: Scheduler)		638
+nim	jobState	schedules/scheduler.html#jobState,Scheduler,string	proc jobState(self: Scheduler; id: string): Option[BeaterState]		643
+nim	lastRun	schedules/scheduler.html#lastRun,Scheduler,string	proc lastRun(self: Scheduler; id: string): Option[DateTime]		650
+nim	nextRun	schedules/scheduler.html#nextRun,Scheduler,string	proc nextRun(self: Scheduler; id: string): Option[DateTime]		657
+nim	lastError	schedules/scheduler.html#lastError,Scheduler,string	proc lastError(self: Scheduler; id: string): ref Exception		664
+nim	lastErrorAt	schedules/scheduler.html#lastErrorAt,Scheduler,string	proc lastErrorAt(self: Scheduler; id: string): Option[DateTime]		671
+nim	failures	schedules/scheduler.html#failures,Scheduler,string	proc failures(self: Scheduler; id: string): int		678
+nim	runningCount	schedules/scheduler.html#runningCount,Scheduler,string	proc runningCount(self: Scheduler; id: string): int		685
+nim	idle	schedules/scheduler.html#idle,Scheduler	proc idle(self: Scheduler): owned(Future[void])		692
+nim	start	schedules/scheduler.html#start,Scheduler	proc start(self: Scheduler): owned(Future[void])		697
+nim	serve	schedules/scheduler.html#serve,Scheduler	proc serve(self: Scheduler)		704
+nim	waitFor	schedules/scheduler.html#waitFor,Scheduler	proc waitFor(self: Scheduler)		710
+nim	scheduler	schedules/scheduler.html#scheduler.m,untyped,untyped	macro scheduler(sched: untyped; body: untyped)		995
+nim	schedules	schedules/scheduler.html#schedules.m,untyped	macro schedules(body: untyped): untyped		1002
+nimgrp	pause	schedules/scheduler.html#pause-procs-all	proc		160
+nimgrp	failures	schedules/scheduler.html#failures-procs-all	proc		152
+nimgrp	nextrun	schedules/scheduler.html#nextRun-procs-all	proc		140
+nimgrp	initbeater	schedules/scheduler.html#initBeater-procs-all	proc		196
+nimgrp	lasterrorat	schedules/scheduler.html#lastErrorAt-procs-all	proc		148
+nimgrp	lasterror	schedules/scheduler.html#lastError-procs-all	proc		144
+nimgrp	runningcount	schedules/scheduler.html#runningCount-procs-all	proc		156
+nimgrp	stop	schedules/scheduler.html#stop-procs-all	proc		173
+nimgrp	resume	schedules/scheduler.html#resume-procs-all	proc		167
+nimgrp	lastrun	schedules/scheduler.html#lastRun-procs-all	proc		136
 heading	nim-schedules	schedules/scheduler.html#nimminusschedules	 nim-schedules		0

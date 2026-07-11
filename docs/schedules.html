@@ -80,7 +80,7 @@
     <div id="tocRoot"></div>
     
     <p class="module-desc">
-<h1><a class="toc-backref" id="nimminusschedules" href="#nimminusschedules">nim-schedules</a></h1><p>A Nim scheduler library that lets you kick off jobs at regular intervals.</p>
+<h1><a class="toc-backref" id="nimminusschedules" href="#nimminusschedules">nim-schedules</a></h1><p>A Nim scheduler library for interval, cron, and one-shot jobs.</p>
 
 <h2><a class="toc-backref" id="nimminusschedules-schedule-by-every" href="#nimminusschedules-schedule-by-every">Schedule By Every</a></h2><p>Example usage::</p>
 <pre>import schedules, times, asyncdispatch
@@ -92,17 +92,28 @@ schedules:
   every(seconds=1, id=&quot;sync tick&quot;):
     echo(&quot;sync tick &quot;, now())</pre>
 <p>The code enables you:</p>
-<ul class="simple"><li>Schedule thread proc every 10 seconds.</li>
-<li>Schedule async proc every 10 seconds.</li>
+<ul class="simple"><li>Schedule an async proc every second.</li>
+<li>Schedule a thread-backed proc every second.</li>
 </ul>
 <p>Run::</p>
-<pre>nim c --threads:on -r everyExample.nim</pre>
+<pre>nim c --threads:on -r examples/example_basic_intervals.nim</pre>
 <p>Note:</p>
-<ul class="simple"><li>Don't forget --threads:on when compiling your application.</li>
+<ul class="simple"><li>Compile applications that import schedules with --threads:on. Jobs without async=true run in worker threads and must satisfy Nim's thread and GC-safety rules. Async jobs run on the event loop and should not make blocking calls.</li>
+<li>Exceptions from thread-backed jobs are not propagated through job futures.</li>
 <li>The library schedules all jobs at a regular interval, but it'll be impacted by your system load.</li>
 </ul>
 
-<h2><a class="toc-backref" id="nimminusschedules-schedule-by-cron" href="#nimminusschedules-schedule-by-cron">Schedule By Cron</a></h2><p>You can set minute, hour, day_of_month, month, day_of_week, and year in the cron() call. Each field is a string in cron-syntax, containing any of the allowed values, along with various combinations of the allowed special characters for that field (, - * /).</p>
+<h2><a class="toc-backref" id="nimminusschedules-schedule-by-cron" href="#nimminusschedules-schedule-by-cron">Schedule By Cron</a></h2><p>You can set minute, hour, day_of_month, month, day_of_week, and year in the cron() call. Omitted fields default to <tt class="docutils literal"><span class="pre"><span class="Operator">*</span></span></tt>, and scheduling has one-minute resolution.</p>
+<p>Supported field ranges:</p>
+<ul class="simple"><li>minute: 0-59</li>
+<li>hour: 0-23</li>
+<li>day_of_month: 1-31</li>
+<li>month: 1-12 or jan-dec</li>
+<li>day_of_week: 1-7 or mon-sun, where Monday is 1</li>
+<li>year: 1970-9999</li>
+</ul>
+<p>Fields are case-insensitive. All fields accept <tt class="docutils literal"><span class="pre"><span class="Operator">*</span></span></tt>, comma-separated lists, inclusive ranges, and steps such as <tt class="docutils literal"><span class="pre"><span class="Operator">*/</span><span class="DecNumber">5</span></span></tt>, <tt class="docutils literal"><span class="pre"><span class="DecNumber">2</span><span class="Operator">/</span><span class="DecNumber">3</span></span></tt>, or <tt class="docutils literal"><span class="pre"><span class="DecNumber">1</span><span class="Operator">-</span><span class="DecNumber">10</span><span class="Operator">/</span><span class="DecNumber">2</span></span></tt>. day_of_month also accepts <tt class="docutils literal"><span class="pre"><span class="Identifier">L</span></span></tt> or <tt class="docutils literal"><span class="pre"><span class="Identifier">last</span></span></tt> for the last day of the month. day_of_week accepts <tt class="docutils literal"><span class="pre"><span class="Identifier">dL</span></span></tt> for the last named weekday and <tt class="docutils literal"><span class="pre"><span class="Identifier">d</span><span class="Comment">#n</span></span></tt> for the nth named weekday, such as <tt class="docutils literal"><span class="pre"><span class="Identifier">friL</span></span></tt> and <tt class="docutils literal"><span class="pre"><span class="Identifier">mon</span><span class="Comment">#3</span></span></tt>.</p>
+<p>When both day_of_month and day_of_week are restricted, a match on either field is selected. The parser recognizes <tt class="docutils literal"><span class="pre"><span class="Operator">?</span></span></tt> and <tt class="docutils literal"><span class="pre"><span class="Identifier">W</span></span></tt>, but the next-run evaluator does not implement them. Direct newCron calls expose <tt class="docutils literal"><span class="pre"><span class="Identifier">second</span></span></tt>, but the current next-run calculation does not evaluate it.</p>
 <p>Example usage::</p>
 <pre>import schedules, times, asyncdispatch
 schedules:
@@ -117,9 +128,9 @@ schedules:
 <li>Pass timezone=utc() or another Timezone to evaluate cron fields in that zone.</li>
 </ul>
 <p>Run::</p>
-<pre>nim c --threads:on -r cronExample.nim</pre>
+<pre>nim c --threads:on -r examples/example_cron_scheduler.nim</pre>
 <p>Note:</p>
-<ul class="simple"><li>Don't forget --threads:on when compiling your application.</li>
+<ul class="simple"><li>Compile applications with --threads:on.</li>
 <li>The library schedules all jobs at a regular interval, but it'll be impacted by your system load.</li>
 </ul>
 
@@ -143,28 +154,23 @@ schedules:
     echo(&quot;sync tick &quot;, now())</pre>
 
 <h2><a class="toc-backref" id="nimminusschedules-customize-scheduler" href="#nimminusschedules-customize-scheduler">Customize Scheduler</a></h2><p>Sometimes, you want to run the scheduler in parallel with other libraries. In this case, you can create your own scheduler by macro scheduler and start it later.</p>
-<p>Below is an example of co-exist jester and nim-schedules in one process.::</p>
-<pre>import times, asyncdispatch, schedules, jester
+<p>Below is an example of running nim-schedules and Prologue in one process.::</p>
+<pre>import times, asyncdispatch, schedules, prologue
 
 scheduler mySched:
   every(seconds=1, id=&quot;sync tick&quot;):
     echo(&quot;sync tick, seconds=1 &quot;, now())
 
-router myRouter:
-  get &quot;/&quot;:
-    resp &quot;It's alive!&quot;
+proc hello*(ctx: Context) {.async.} =
+  resp &quot;&lt;h1&gt;Hello, Prologue! It's alive!&lt;/h1&gt;&quot;
 
-proc main():
-  # start schedules
+proc main() =
   asyncCheck mySched.start()
   
-  # start jester
-  let port = paramStr(1).parseInt().Port
-  let settings = newSettings(port=port)
-  var jester = initJester(myrouter, settings=settings)
-  
-  # run
-  jester.serve()
+  let settings = prologue.newSettings()
+  var app = newApp(settings=settings)
+  app.addRoute(&quot;/&quot;, hello)
+  app.run()
 
 when isMainModule:
   main()</pre>
@@ -278,7 +284,7 @@ sched.stopAll()</pre>
       <div class="twelve-columns footer">
         <span class="nim-sprite"></span>
         <br>
-        <small style="color: var(--hint);">Made with Nim. Generated: 2026-07-10 15:11:13 UTC</small>
+        <small style="color: var(--hint);">Made with Nim. Generated: 2026-07-11 00:04:11 UTC</small>
       </div>
     </div>
   </div>
