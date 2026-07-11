@@ -5,7 +5,7 @@
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>src/schedules/scheduler</title>
+<title>src/metronome/scheduler</title>
 
 <!-- Google fonts -->
 <link href='https://fonts.googleapis.com/css?family=Lato:400,600,900' rel='stylesheet' type='text/css'/>
@@ -27,7 +27,7 @@
     <label for="nav-toggle" id="nav-burger">&#9776;</label>
     <label for="nav-toggle" id="nav-overlay"></label>
     <div class="container">
-      <h1 class="title">src/schedules/scheduler</h1>
+      <h1 class="title">src/metronome/scheduler</h1>
       <div class="row">
   <div class="three columns">
     <div class="theme-select-wrapper">
@@ -54,7 +54,7 @@
       </select>
     </div>
     <ul class="simple simple-toc" id="toc-list">
-  <li><a class="reference" id="nimminusschedules_toc" href="#nimminusschedules">nim-schedules</a></li>
+  <li><a class="reference" id="metronome_toc" href="#metronome">Metronome</a></li>
 <li>
   <a class="reference reference-toplevel" href="#6" id="56">Imports</a>
 </li>
@@ -271,12 +271,12 @@
   <details open>
     <summary><a class="reference reference-toplevel" href="#17" id="67">Macros</a></summary>
     <ul class="simple simple-toc-section">
-      <ul class="simple nested-toc-section">scheduler
-  <li><a class="reference" href="#scheduler.m%2Cuntyped%2Cuntyped" title="scheduler(sched: untyped; body: untyped)">scheduler(sched: untyped; body: untyped)</a></li>
+      <ul class="simple nested-toc-section">metronome
+  <li><a class="reference" href="#metronome.m%2Cuntyped" title="metronome(body: untyped): untyped">metronome(body: untyped): untyped</a></li>
 
 </ul>
-<ul class="simple nested-toc-section">schedules
-  <li><a class="reference" href="#schedules.m%2Cuntyped" title="schedules(body: untyped): untyped">schedules(body: untyped): untyped</a></li>
+<ul class="simple nested-toc-section">scheduler
+  <li><a class="reference" href="#scheduler.m%2Cuntyped%2Cuntyped" title="scheduler(sched: untyped; body: untyped)">scheduler(sched: untyped; body: untyped)</a></li>
 
 </ul>
 
@@ -292,9 +292,9 @@
     <div id="tocRoot"></div>
     
     <p class="module-desc">
-<h1><a class="toc-backref" id="nimminusschedules" href="#nimminusschedules">nim-schedules</a></h1><p>A Nim scheduler library that lets you kick off jobs at regular intervals.</p>
+<h1><a class="toc-backref" id="metronome" href="#metronome">Metronome</a></h1><p>A Nim scheduler library that lets you kick off jobs at regular intervals.</p>
 <p>Example usage::</p>
-<pre>schedules:
+<pre>metronome:
   every(seconds=1, id=&quot;tick&quot;, throttle=1, async=true):
     echo(&quot;async tick &quot;, now())
     await sleepAsync(2000)
@@ -912,26 +912,26 @@
 <div class="section" id="17">
   <h1><a class="toc-backref" href="#17">Macros</a></h1>
   <dl class="item">
-    <div id="scheduler-macros-all">
-  <div id="scheduler.m,untyped,untyped">
-  <dt><pre><span class="Keyword">macro</span> <a href="#scheduler.m%2Cuntyped%2Cuntyped"><span class="Identifier">scheduler</span></a><span class="Other">(</span><span class="Identifier">sched</span><span class="Other">:</span> <span class="Identifier">untyped</span><span class="Other">;</span> <span class="Identifier">body</span><span class="Other">:</span> <span class="Identifier">untyped</span><span class="Other">)</span></pre></dt>
+    <div id="metronome-macros-all">
+  <div id="metronome.m,untyped">
+  <dt><pre><span class="Keyword">macro</span> <a href="#metronome.m%2Cuntyped"><span class="Identifier">metronome</span></a><span class="Other">(</span><span class="Identifier">body</span><span class="Other">:</span> <span class="Identifier">untyped</span><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">untyped</span></pre></dt>
   <dd>
     
-    <p>Initialize a scheduler and register code blocks as beats.</p>
-<p>Use it when running nim-schedules alongside another event-driven library, such as a web framework.</p>
+    <p>Initialize a scheduler, register code blocks as beats, and run it as a blocking application.</p>
+<p>You'll use it when the scheduled jobs are the only thing your programm will need to handle.</p>
 
     
   </dd>
 </div>
 
 </div>
-<div id="schedules-macros-all">
-  <div id="schedules.m,untyped">
-  <dt><pre><span class="Keyword">macro</span> <a href="#schedules.m%2Cuntyped"><span class="Identifier">schedules</span></a><span class="Other">(</span><span class="Identifier">body</span><span class="Other">:</span> <span class="Identifier">untyped</span><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">untyped</span></pre></dt>
+<div id="scheduler-macros-all">
+  <div id="scheduler.m,untyped,untyped">
+  <dt><pre><span class="Keyword">macro</span> <a href="#scheduler.m%2Cuntyped%2Cuntyped"><span class="Identifier">scheduler</span></a><span class="Other">(</span><span class="Identifier">sched</span><span class="Other">:</span> <span class="Identifier">untyped</span><span class="Other">;</span> <span class="Identifier">body</span><span class="Other">:</span> <span class="Identifier">untyped</span><span class="Other">)</span></pre></dt>
   <dd>
     
-    <p>Initialize a scheduler, register code blocks as beats, and run it as a blocking application.</p>
-<p>You'll use it when the scheduled jobs are the only thing your programm will need to handle.</p>
+    <p>Initialize a scheduler and register code blocks as beats.</p>
+<p>Use it when running Metronome alongside another event-driven library, such as a web framework.</p>
 
     
   </dd>
@@ -948,7 +948,7 @@
       <div class="twelve-columns footer">
         <span class="nim-sprite"></span>
         <br>
-        <small style="color: var(--hint);">Made with Nim. Generated: 2026-07-11 00:33:37 UTC</small>
+        <small style="color: var(--hint);">Made with Nim. Generated: 2026-07-11 18:28:32 UTC</small>
       </div>
     </div>
   </div>

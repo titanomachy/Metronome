@@ -1,4 +1,4 @@
-## # nim-schedules
+## # Metronome
 ##
 ## A Nim scheduler library for interval, cron, and one-shot jobs.
 ##
@@ -6,9 +6,9 @@
 ##
 ## Example usage::
 ##
-##     import schedules, times, asyncdispatch
+##     import metronome, times, asyncdispatch
 ##
-##     schedules:
+##     metronome:
 ##       every(seconds=1, id="tick", async=true):
 ##         echo("async tick ", now())
 ##         await sleepAsync(2000)
@@ -26,7 +26,7 @@
 ##
 ## Note:
 ##
-## * Compile applications that import schedules with --threads:on. Jobs without
+## * Compile applications that import metronome with --threads:on. Jobs without
 ##   async=true run in worker threads and must satisfy Nim's thread and GC-safety
 ##   rules. Async jobs run on the event loop and should not make blocking calls.
 ## * Exceptions from thread-backed jobs are not propagated through job futures.
@@ -60,8 +60,8 @@
 ##
 ## Example usage::
 ##
-##     import schedules, times, asyncdispatch
-##     schedules:
+##     import metronome, times, asyncdispatch
+##     metronome:
 ##       cron(minute="*/1", hour="*", day_of_month="*", month="*", day_of_week="*", id="tick"):
 ##         echo("tick", now())
 ##       cron(minute="*/1", hour="*", day_of_month="*", month="*", day_of_week="*", id="atick", async=true):
@@ -86,11 +86,11 @@
 ##
 ## ## Schedule Once
 ##
-## Use at(time=...) inside a schedules or scheduler block to schedule a job one time.::
+## Use at(time=...) inside a metronome or scheduler block to schedule a job one time.::
 ##
-##     import schedules, times, asyncdispatch
+##     import metronome, times, asyncdispatch
 ##
-##     schedules:
+##     metronome:
 ##       at(time=now()+initDuration(minutes=5), id="warm-cache", async=true):
 ##         echo("warming cache")
 ##
@@ -102,9 +102,9 @@
 ##
 ## You can allow more instances by specifying `throttle=`. For example::
 ##
-##     import schedules, times, asyncdispatch
+##     import metronome, times, asyncdispatch
 ##
-##     schedules:
+##     metronome:
 ##       every(seconds=1, id="async tick", throttle=2, async=true):
 ##         echo("async tick ", now())
 ##         await sleepAsync(2000)
@@ -116,9 +116,9 @@
 ##
 ## Sometimes, you want to run the scheduler in parallel with other libraries. In this case, you can create your own scheduler by macro scheduler and start it later.
 ##
-## Below is an example of running nim-schedules and Prologue in one process.::
+## Below is an example of running Metronome and Prologue in one process.::
 ##
-##     import times, asyncdispatch, schedules, prologue
+##     import times, asyncdispatch, metronome, prologue
 ##
 ##     scheduler mySched:
 ##       every(seconds=1, id="sync tick"):
@@ -144,7 +144,7 @@
 ##
 ## For example::
 ##
-##     import schedules, times, asyncdispatch, os
+##     import metronome, times, asyncdispatch, os
 ##
 ##     scheduler demoSetRange:
 ##       every(
@@ -166,7 +166,7 @@
 ## This is useful for tests, dashboards, and checking interval or cron behavior
 ## deterministically.::
 ##
-##     import schedules, times, options, asyncdispatch
+##     import metronome, times, options, asyncdispatch
 ##
 ##     proc noop(): Future[void] {.async.} = discard
 ##
@@ -189,7 +189,7 @@
 ##
 ## Example usage::
 ##
-##     import schedules, asyncdispatch, times
+##     import metronome, asyncdispatch, times
 ##
 ##     proc handleSchedulerError(fut: Future[void]) {.gcsafe.} =
 ##       echo("job failed: ", fut.readError().msg)
@@ -227,7 +227,7 @@
 ##
 ## Example usage::
 ##
-##     import schedules, asyncdispatch, times
+##     import metronome, asyncdispatch, times
 ##
 ##     scheduler sched:
 ##       every(minutes=5, id="spread-out", async=true, jitter=initTimeInterval(seconds=30)):
@@ -260,7 +260,7 @@
 ##
 ## Example usage::
 ##
-##     import schedules, asyncdispatch, times
+##     import metronome, asyncdispatch, times
 ##
 ##     let sched = initScheduler(newSettings())
 ##     sched.register(initBeater(
@@ -275,8 +275,8 @@
 ##     sched.stopAll()
 
 
-import schedules/scheduler
-import schedules/cron/cron
+import metronome/scheduler
+import metronome/cron/cron
 
 export logger
 export BeaterAsyncProc
@@ -317,7 +317,7 @@ export start
 export serve
 export waitFor
 export scheduler
-export schedules
+export metronome
 export Cron
 export newCron
 export getNext

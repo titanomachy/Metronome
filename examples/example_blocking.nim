@@ -1,7 +1,7 @@
 import os, times, asyncdispatch
-import schedules
+import metronome
 
-schedules:
+metronome:
   cron(minute="*/1", id="cron - sync tick"):
     echo("(cron) sync tick, every minute ", now())
     sleep(3000)

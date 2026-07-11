@@ -1,13 +1,17 @@
-# nim-schedules
+# Metronome
 
-[![CI](https://github.com/titanomachy/nim-schedules/actions/workflows/ci.yml/badge.svg)](https://github.com/titanomachy/nim-schedules/actions/workflows/ci.yml)
-[![Coverage](docs/coverage.svg)](https://github.com/titanomachy/nim-schedules/actions)
+> [!WARNING]
+> **Alpha software:** Metronome is a pre-1.0 package under active development.
+> Its public API may change without compatibility guarantees.
+
+[![CI](https://github.com/titanomachy/Metronome/actions/workflows/ci.yml/badge.svg)](https://github.com/titanomachy/Metronome/actions/workflows/ci.yml)
+[![Coverage](docs/coverage.svg)](https://github.com/titanomachy/Metronome/actions)
 
 [@soasme](https://github.com/soasme) originally created the base of this library. You can find it [here](https://github.com/soasme/nim-schedules).
 
 A Nim scheduler library for interval, cron, and one-shot jobs.
 
-Read the [documentation](https://titanomachy.github.io/nim-schedules/schedules.html).
+Read the [documentation](https://titanomachy.github.io/Metronome/metronome.html).
 
 Features:
 
@@ -22,7 +26,7 @@ Features:
 ## Getting Started
 
 ```bash
-$ nimble install https://github.com/titanomachy/nim-schedules
+nimble install metronome
 ```
 
 ## Usage
@@ -33,9 +37,9 @@ async event loop.
 
 ```nim
 # File: examples/example_getting_started.nim
-import schedules, times, asyncdispatch
+import metronome, times, asyncdispatch
 
-schedules:
+metronome:
   every(seconds=10, id="tick"):
     echo("tick", now())
 
@@ -58,7 +62,7 @@ real-time deadlines.
 
 ### Thread Requirements
 
-Compile applications that import `schedules` with `--threads:on`:
+Compile applications that import `metronome` with `--threads:on`:
 
 ```bash
 nim c --threads:on your_app.nim
@@ -81,9 +85,9 @@ applications and ad hoc example builds should pass the flag explicitly.
 You can use `cron` to schedule jobs using cron-like syntax.
 
 ```nim
-import schedules, times, asyncdispatch
+import metronome, times, asyncdispatch
 
-schedules:
+metronome:
   cron(minute="*/1", hour="*", day_of_month="*", month="*", day_of_week="*", id="tick"):
     echo("tick", now())
 
@@ -133,9 +137,9 @@ Cron schedules can also be evaluated in a specific Nim `Timezone` by passing
 `timezone=`.
 
 ```nim
-import schedules, times, asyncdispatch, options
+import metronome, times, asyncdispatch, options
 
-schedules:
+metronome:
   cron(hour="9", minute="0", id="utc-daily", async=true, timezone=utc()):
     echo("09:00 UTC ", now())
 ```
@@ -149,15 +153,15 @@ handling.
 
 ### One-Shot Jobs
 
-Use `at` inside a `schedules` or `scheduler` block to schedule a job once at a
+Use `at` inside a `metronome` or `scheduler` block to schedule a job once at a
 specific `DateTime`. One-shot jobs stop after their first launch. If a pending
 one-shot job is paused and resumed before or after its scheduled time, it
 remains pending and launches once.
 
 ```nim
-import schedules, times, asyncdispatch
+import metronome, times, asyncdispatch
 
-schedules:
+metronome:
   at(time=now()+initDuration(minutes=5), id="warm-cache", async=true):
     echo("warming cache")
 ```
@@ -181,9 +185,9 @@ not be scheduled.
 You can allow more instances by specifying `throttle=`. For example:
 
 ```nim
-import schedules, times, asyncdispatch, os
+import metronome, times, asyncdispatch, os
 
-schedules:
+metronome:
   every(seconds=1, id="tick", throttle=2):
     echo("tick", now())
     sleep(2000)
@@ -199,10 +203,10 @@ Sometimes, you want to run the scheduler in parallel with other libraries.
 In this case, you can create your own scheduler by macro `scheduler` and
 start it later.
 
-Below is an example showing how to run `nim-schedules` concurrently with the Prologue web framework in one process.
+Below is an example showing how to run Metronome concurrently with the Prologue web framework in one process.
 
 ```nim
-import times, asyncdispatch, schedules, prologue
+import times, asyncdispatch, metronome, prologue
 
 scheduler mySched:
   every(seconds=1, id="sync tick"):
@@ -233,7 +237,7 @@ You can limit the schedules running in a designated range of time by specifying
 For example,
 
 ```nim
-import schedules, times, asyncdispatch, os
+import metronome, times, asyncdispatch, os
 
 scheduler demoSetRange:
   every(
@@ -270,7 +274,7 @@ The examples are the runnable counterparts to the snippets in this guide:
   and [example_one_shot.nim](examples/example_one_shot.nim) cover the matching
   sections above.
 * [example_prologue.nim](examples/example_prologue.nim) shows integration with
-  Prologue and requires that package in addition to `nim-schedules`.
+  Prologue and requires that package in addition to Metronome.
 
 Compile a standalone example with threads enabled, for example:
 
@@ -285,7 +289,7 @@ This is useful for tests, dashboards, and checking interval or cron behavior
 deterministically.
 
 ```nim
-import schedules, times, options, asyncdispatch
+import metronome, times, options, asyncdispatch
 
 proc noop(): Future[void] {.async.} = discard
 
@@ -308,7 +312,7 @@ Error handlers are supported for async jobs only; thread-backed sync jobs do not
 propagate exceptions through their returned futures.
 
 ```nim
-import schedules, asyncdispatch, times
+import metronome, asyncdispatch, times
 
 proc handleSchedulerError(fut: Future[void]) {.gcsafe.} =
   echo("job failed: ", fut.readError().msg)
@@ -348,7 +352,7 @@ launch at the same instant. Jitter is only supported for interval schedules, not
 cron schedules.
 
 ```nim
-import schedules, asyncdispatch, times
+import metronome, asyncdispatch, times
 
 scheduler sched:
   every(minutes=5, id="spread-out", async=true, jitter=initTimeInterval(seconds=30)):
@@ -384,7 +388,7 @@ registered jobs. The ID-based control procs return `true` when exactly one job
 matches the id and `false` when the id is missing, empty, or ambiguous.
 
 ```nim
-import schedules, asyncdispatch, times
+import metronome, asyncdispatch, times
 
 let sched = initScheduler(newSettings())
 sched.register(initBeater(initTimeInterval(seconds=10), proc(): Future[void] {.async.} = discard, id="tick"))
@@ -403,7 +407,7 @@ registered job has that non-empty id. Missing, empty, anonymous, or duplicate id
 return `none(...)`, `nil`, or `0` depending on the accessor.
 
 ```nim
-import schedules, asyncdispatch, times, options
+import metronome, asyncdispatch, times, options
 
 let sched = initScheduler(newSettings())
 sched.register(initBeater(initTimeInterval(seconds=10), proc(): Future[void] {.async.} = discard, id="tick"))
@@ -468,8 +472,8 @@ To generate the HTML documentation locally:
 nimble docs
 ```
 
-This compiles all docstrings in the codebase and outputs the generated files directly into the `docs/` folder. You can open `docs/schedules.html` in your browser to read the generated docs.
+This compiles all docstrings in the codebase and outputs the generated files directly into the `docs/` folder. You can open `docs/metronome.html` in your browser to read the generated docs.
 
 ## License
 
-Nim-schedules is based on MIT license.
+Metronome is licensed under the MIT License.

@@ -1,10 +1,10 @@
-## # nim-schedules
+## # Metronome
 ##
 ## A Nim scheduler library that lets you kick off jobs at regular intervals.
 ##
 ## Example usage::
 ##
-##     schedules:
+##     metronome:
 ##       every(seconds=1, id="tick", throttle=1, async=true):
 ##         echo("async tick ", now())
 ##         await sleepAsync(2000)
@@ -29,7 +29,7 @@ type
   BeaterThreadProc* = proc (): void {.gcsafe, thread.}
   ## Thread proc to be scheduled.
   ## It should be marked with pragma `{.thread.}`.
-  ## It will be turned to BeaterAsyncProc in nim-schedules internally.
+  ## It will be turned to BeaterAsyncProc in Metronome internally.
 
 proc toAsync(p: BeaterThreadProc): BeaterAsyncProc =
   result =
@@ -510,7 +510,7 @@ proc watch(self: Beater, fut: Future[void], errorHandler: JobErrorHandler) =
   )
 
 proc failedJobFuture(exc: ref Exception): Future[void] =
-  result = newFuture[void]("schedules.failedJobFuture")
+  result = newFuture[void]("metronome.failedJobFuture")
   result.fail(exc)
 
 proc launch(self: Beater): Future[void] =
@@ -995,11 +995,11 @@ proc schedulerEx(sched: NimNode, body: NimNode): NimNode =
 macro scheduler*(sched: untyped, body: untyped) =
   ## Initialize a scheduler and register code blocks as beats.
   ##
-  ## Use it when running nim-schedules alongside another event-driven library,
+  ## Use it when running Metronome alongside another event-driven library,
   ## such as a web framework.
   result = schedulerEx(sched, body)
 
-macro schedules*(body: untyped): untyped =
+macro metronome*(body: untyped): untyped =
   ## Initialize a scheduler, register code blocks as beats,
   ## and run it as a blocking application.
   ##
