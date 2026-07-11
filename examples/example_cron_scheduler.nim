@@ -1,4 +1,4 @@
-import times, asyncdispatch
+import times
 import schedules
 
 # Initialize our custom scheduler
