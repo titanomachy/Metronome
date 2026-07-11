@@ -995,8 +995,8 @@ proc schedulerEx(sched: NimNode, body: NimNode): NimNode =
 macro scheduler*(sched: untyped, body: untyped) =
   ## Initialize a scheduler and register code blocks as beats.
   ##
-  ## You'll use it when you want to mix using nim-schedules
-  ## with some other libraries, such as jester, etc.
+  ## Use it when running nim-schedules alongside another event-driven library,
+  ## such as a web framework.
   result = schedulerEx(sched, body)
 
 macro schedules*(body: untyped): untyped =

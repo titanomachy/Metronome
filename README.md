@@ -5,7 +5,7 @@
 
 [@soasme](https://github.com/soasme) originally created the base of this library. You can find it [here](https://github.com/soasme/nim-schedules).
 
-A Nim scheduler library that lets you kick off jobs at regular intervals.
+A Nim scheduler library for interval, cron, and one-shot jobs.
 
 Read the [documentation](https://titanomachy.github.io/nim-schedules/schedules.html).
 
@@ -27,8 +27,12 @@ $ nimble install https://github.com/titanomachy/nim-schedules
 
 ## Usage
 
+This introductory example uses both execution paths: a regular procedure runs
+in its own worker thread, while the procedure marked `async=true` runs on the
+async event loop.
+
 ```nim
-# File: scheduleExample.nim
+# File: examples/example_getting_started.nim
 import schedules, times, asyncdispatch
 
 schedules:
@@ -46,16 +50,31 @@ schedules:
 Run:
 
 ```bash
-nim c --threads:on -r scheduleExample.nim
+nim c --threads:on -r examples/example_getting_started.nim
 ```
 
-Note:
+Scheduling is affected by system load, so launch times should not be treated as
+real-time deadlines.
 
-* Don't forget **`--threads:on`** when compiling your application.
-* The library schedules all jobs at a regular interval, but it'll be impacted
-  by your system load.
+### Thread Requirements
 
-## Advance Usages
+Compile applications that import `schedules` with `--threads:on`:
+
+```bash
+nim c --threads:on your_app.nim
+```
+
+An `every`, `cron`, or `at` block without `async=true` becomes a thread-backed
+job. Its body must satisfy Nim's thread and GC-safety rules, and blocking work
+inside it blocks only that worker thread. A block with `async=true` runs on the
+async event loop; use `await` for long-running work because blocking calls in
+that body stall the event loop. Async job failures can be tracked and handled;
+exceptions from thread-backed jobs are not propagated through job futures.
+
+The repository's tests already enable threads through `tests/config.nims`, but
+applications and ad hoc example builds should pass the flag explicitly.
+
+## Advanced Usage
 
 ### Cron
 
@@ -76,6 +95,40 @@ schedules:
 1. Schedule thread proc every minute.
 2. Schedule async proc every minute.
 
+#### Cron Syntax
+
+The `cron` macro accepts six string fields. Omitted fields default to `"*"`.
+Cron scheduling has one-minute resolution.
+
+| Field | Values | Names |
+| --- | --- | --- |
+| `minute` | `0-59` | — |
+| `hour` | `0-23` | — |
+| `day_of_month` | `1-31` | — |
+| `month` | `1-12` | `jan` through `dec` |
+| `day_of_week` | `1-7` | `mon` through `sun` |
+| `year` | `1970-9999` | — |
+
+Field text is case-insensitive. These forms can be combined in a field:
+
+| Syntax | Meaning | Example |
+| --- | --- | --- |
+| `*` | every allowed value | `hour="*"` |
+| `a,b` | a list of values | `minute="0,30"` |
+| `a-b` | an inclusive range | `day_of_week="mon-fri"` |
+| `*/n`, `a/n`, `a-b/n` | steps through all values, from a value, or through a range | `minute="*/5"` |
+| `L` or `last` | last day of the month; `day_of_month` only | `day_of_month="L"` |
+| `dL` | last weekday `d` of the month; `day_of_week` only | `day_of_week="friL"` |
+| `d#n` | nth weekday `d` of the month; `day_of_week` only | `day_of_week="mon#3"` |
+
+When both `day_of_month` and `day_of_week` are restricted, a date matching
+either field is selected. Although the low-level parser currently recognizes
+`?` and `W`, the next-run evaluator does not implement them; do not use those
+forms in schedules.
+
+Direct `newCron` calls expose a `second` argument for API compatibility, but
+the current next-run calculation is minute-based and does not evaluate it.
+
 Cron schedules can also be evaluated in a specific Nim `Timezone` by passing
 `timezone=`.
 
@@ -88,6 +141,11 @@ schedules:
 ```
 
 Direct `initBeater` calls accept `timezone=some(myTimezone)`.
+
+See [example_cron_scheduler.nim](examples/example_cron_scheduler.nim) for
+lists, `#`, and `L`, and
+[example_cron_timezone.nim](examples/example_cron_timezone.nim) for timezone
+handling.
 
 ### One-Shot Jobs
 
@@ -192,6 +250,33 @@ when isMainModule:
 
 Parameters `startTime` and `endTime` can be used independently. For example,
 you can set startTime only, or set endTime only.
+
+### Runnable Examples
+
+The examples are the runnable counterparts to the snippets in this guide:
+
+* [example_getting_started.nim](examples/example_getting_started.nim) is the
+  complete introductory example shown above.
+* [example_basic_intervals.nim](examples/example_basic_intervals.nim) covers
+  sync and async intervals, throttling, and a bounded time window.
+* [example_async_jobs.nim](examples/example_async_jobs.nim) demonstrates a
+  finite async scheduler run.
+* [example_blocking.nim](examples/example_blocking.nim) combines thread-backed
+  and async interval and cron jobs.
+* [example_cron_scheduler.nim](examples/example_cron_scheduler.nim) covers
+  lists and the weekday `#` and `L` forms.
+* [example_cron_timezone.nim](examples/example_cron_timezone.nim),
+  [example_firetime_calculations.nim](examples/example_firetime_calculations.nim),
+  and [example_one_shot.nim](examples/example_one_shot.nim) cover the matching
+  sections above.
+* [example_prologue.nim](examples/example_prologue.nim) shows integration with
+  Prologue and requires that package in addition to `nim-schedules`.
+
+Compile a standalone example with threads enabled, for example:
+
+```bash
+nim c --threads:on -r examples/example_async_jobs.nim
+```
 
 ### Calculate Next Run Times
 

@@ -8,7 +8,7 @@ scheduler myBasicSched:
   every(seconds=2, id="sync-task"):
     echo "[sync-task] Running at: ", now()
     # Note: blocking calls like sleep() will block the current worker thread,
-    # so we set throttle=2 to allow multiple runs to overlapping.
+    # so we set throttle=2 to allow multiple runs to overlap.
     sleep(1000)
 
   # Run an async procedure every 3 seconds with throttling

@@ -1,6 +1,6 @@
 ## # nim-schedules
 ##
-## A Nim scheduler library that lets you kick off jobs at regular intervals.
+## A Nim scheduler library for interval, cron, and one-shot jobs.
 ##
 ## ## Schedule By Every
 ##
@@ -17,22 +17,46 @@
 ##
 ## The code enables you:
 ##
-## * Schedule thread proc every 10 seconds.
-## * Schedule async proc every 10 seconds.
+## * Schedule an async proc every second.
+## * Schedule a thread-backed proc every second.
 ##
 ## Run::
 ##
-##     nim c --threads:on -r everyExample.nim
+##     nim c --threads:on -r examples/example_basic_intervals.nim
 ##
 ## Note:
 ##
-## * Don't forget --threads:on when compiling your application.
+## * Compile applications that import schedules with --threads:on. Jobs without
+##   async=true run in worker threads and must satisfy Nim's thread and GC-safety
+##   rules. Async jobs run on the event loop and should not make blocking calls.
+## * Exceptions from thread-backed jobs are not propagated through job futures.
 ## * The library schedules all jobs at a regular interval, but it'll be impacted by your system load.
 ##
 ## ## Schedule By Cron
 ##
-## You can set minute, hour, day_of_month, month, day_of_week, and year in the cron() call.
-## Each field is a string in cron-syntax, containing any of the allowed values, along with various combinations of the allowed special characters for that field (, - * /).
+## You can set minute, hour, day_of_month, month, day_of_week, and year in the
+## cron() call. Omitted fields default to `*`, and scheduling has one-minute
+## resolution.
+##
+## Supported field ranges:
+##
+## * minute: 0-59
+## * hour: 0-23
+## * day_of_month: 1-31
+## * month: 1-12 or jan-dec
+## * day_of_week: 1-7 or mon-sun, where Monday is 1
+## * year: 1970-9999
+##
+## Fields are case-insensitive. All fields accept `*`, comma-separated lists,
+## inclusive ranges, and steps such as `*/5`, `2/3`, or `1-10/2`.
+## day_of_month also accepts `L` or `last` for the last day of the month.
+## day_of_week accepts `dL` for the last named weekday and `d#n` for the nth
+## named weekday, such as `friL` and `mon#3`.
+##
+## When both day_of_month and day_of_week are restricted, a match on either
+## field is selected. The parser recognizes `?` and `W`, but the next-run
+## evaluator does not implement them. Direct newCron calls expose `second`, but
+## the current next-run calculation does not evaluate it.
 ##
 ## Example usage::
 ##
@@ -53,11 +77,11 @@
 ##
 ## Run::
 ##
-##     nim c --threads:on -r cronExample.nim
+##     nim c --threads:on -r examples/example_cron_scheduler.nim
 ##
 ## Note:
 ##
-## * Don't forget --threads:on when compiling your application.
+## * Compile applications with --threads:on.
 ## * The library schedules all jobs at a regular interval, but it'll be impacted by your system load.
 ##
 ## ## Schedule Once
@@ -92,29 +116,24 @@
 ##
 ## Sometimes, you want to run the scheduler in parallel with other libraries. In this case, you can create your own scheduler by macro scheduler and start it later.
 ##
-## Below is an example of co-exist jester and nim-schedules in one process.::
+## Below is an example of running nim-schedules and Prologue in one process.::
 ##
-##     import times, asyncdispatch, schedules, jester
+##     import times, asyncdispatch, schedules, prologue
 ##
 ##     scheduler mySched:
 ##       every(seconds=1, id="sync tick"):
 ##         echo("sync tick, seconds=1 ", now())
 ##
-##     router myRouter:
-##       get "/":
-##         resp "It's alive!"
+##     proc hello*(ctx: Context) {.async.} =
+##       resp "<h1>Hello, Prologue! It's alive!</h1>"
 ##
-##     proc main():
-##       # start schedules
+##     proc main() =
 ##       asyncCheck mySched.start()
 ##
-##       # start jester
-##       let port = paramStr(1).parseInt().Port
-##       let settings = newSettings(port=port)
-##       var jester = initJester(myrouter, settings=settings)
-##
-##       # run
-##       jester.serve()
+##       let settings = prologue.newSettings()
+##       var app = newApp(settings=settings)
+##       app.addRoute("/", hello)
+##       app.run()
 ##
 ##     when isMainModule:
 ##       main()
