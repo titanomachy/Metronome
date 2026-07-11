@@ -4,9 +4,9 @@ Scope: this file applies to the whole repository.
 
 ## Project Overview
 
-This is `nim-schedules`, a small Nim scheduler library. Public API exports are rooted at `src/schedules.nim`; most scheduler implementation lives under `src/schedules/`, and tests live in `tests/`.
+This is Metronome, a small Nim scheduler library. Public API exports are rooted at `src/metronome.nim`; most scheduler implementation lives under `src/metronome/`, and tests live in `tests/`.
 
-The package is configured by `schedules.nimble` and currently requires Nim `>= 2.2.10`. The library is dependency-light and should stay that way unless a change clearly justifies new dependencies.
+The package is configured by `metronome.nimble` and currently requires Nim `>= 2.2.10`. The library is dependency-light and should stay that way unless a change clearly justifies new dependencies.
 
 ## Development Commands
 
@@ -19,9 +19,9 @@ The package is configured by `schedules.nimble` and currently requires Nim `>= 2
 
 ## Repository Layout
 
-- `src/schedules.nim`: public import/export surface and top-level module documentation.
-- `src/schedules/scheduler.nim`: scheduler, beater, throttling, and macro implementation.
-- `src/schedules/cron/`: cron parsing and next-run logic.
+- `src/metronome.nim`: public import/export surface and top-level module documentation.
+- `src/metronome/scheduler.nim`: scheduler, beater, throttling, and macro implementation.
+- `src/metronome/cron/`: cron parsing and next-run logic.
 - `tests/`: Nim `unittest` tests. Add focused regression coverage here when changing scheduler or cron behavior.
 - `examples/`: runnable usage examples that should stay aligned with README snippets.
 - `docs/`: generated documentation and coverage badge committed by CI.
@@ -29,7 +29,7 @@ The package is configured by `schedules.nimble` and currently requires Nim `>= 2
 ## Coding Guidelines
 
 - Follow the existing Nim style: two-space indentation, exported symbols marked with `*`, and doc comments with `##` for public API.
-- Preserve the public API in `src/schedules.nim` unless the task explicitly asks for a breaking change.
+- Preserve the public API in `src/metronome.nim` unless the task explicitly asks for a breaking change.
 - Scheduler behavior is time-sensitive; prefer deterministic unit tests for date/time calculations where possible, and keep sleep-based tests short.
 - Keep sync and async scheduler paths in parity when changing behavior.
 - Avoid adding background threads, timers, or global state unless the scheduler lifecycle clearly owns them.

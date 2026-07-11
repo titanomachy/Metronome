@@ -1,9 +1,9 @@
 import unittest
 import options
 import times
-import schedules
-import schedules/cron/parser
-import schedules/cron/expr
+import metronome
+import metronome/cron/parser
+import metronome/cron/expr
 
 proc checkCron(cron: Cron, start: string, expect: string) =
   let dt = parse(start, "yyyy-MM-dd HH:mm:ss")

@@ -1,5 +1,5 @@
 import asyncdispatch, options, times
-import schedules
+import metronome
 
 proc noop(): Future[void] {.async.} =
   discard

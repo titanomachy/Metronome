@@ -1,7 +1,7 @@
 import asyncdispatch, times
-import schedules
+import metronome
 
-schedules:
+metronome:
   every(seconds=10, id="tick"):
     echo("tick", now())
 

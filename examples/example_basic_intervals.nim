@@ -1,5 +1,5 @@
 import times, asyncdispatch, os, options
-import schedules
+import metronome
 
 # 1. Initialize a custom scheduler
 scheduler myBasicSched:

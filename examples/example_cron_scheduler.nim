@@ -1,5 +1,5 @@
 import times
-import schedules
+import metronome
 
 # Initialize our custom scheduler
 scheduler myCronSched:

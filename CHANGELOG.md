@@ -1,6 +1,22 @@
-# Release Notes - nim-schedules Upgrade & Bugfixes
+# Metronome Release Notes
 
-This release modernizes `nim-schedules` to support Nim 2.2.10, resolves compiler warnings, resolves critical cron weekday matcher bugs, restructures and expands the test suite, configures local/CI code coverage, and introduces new examples.
+## v0.4.0 - 2026-07-11
+
+### Breaking package and API rename
+
+- Renamed the project and Nimble package from `nim-schedules`/`schedules` to
+  Metronome/`metronome`.
+- Renamed the public module, implementation namespace, and scheduling macro;
+  consumers now use `import metronome` and `metronome:`.
+- Updated examples, tests, documentation, CI links, and maintainer metadata for
+  the new project identity.
+- Marked the package as alpha software. No compatibility modules are provided
+  for the former `schedules` namespace.
+
+## Historical nim-schedules releases
+
+The following notes describe releases made under the former `nim-schedules`
+name.
 
 ## v0.3.1 - 2026-07-10
 

@@ -1,6 +1,6 @@
 import unittest
 import times, options, asyncdispatch
-import schedules
+import metronome
 
 proc dummyAsync(): Future[void] {.async.} = discard
 

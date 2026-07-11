@@ -1,7 +1,7 @@
 import unittest
 
 import times, options, asyncdispatch, strutils
-import schedules
+import metronome
 
 proc noop(): Future[void] {.async.} = discard
 

@@ -1,4 +1,4 @@
-import times, asyncdispatch, schedules, prologue
+import times, asyncdispatch, metronome, prologue
 
 scheduler mySched:
   every(seconds=1, id="sync tick"):

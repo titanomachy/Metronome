@@ -1,5 +1,5 @@
 import asyncdispatch, times
-import schedules
+import metronome
 
 scheduler asyncJobs:
   at(time=now() + initDuration(milliseconds=50), id="async-once", async=true):

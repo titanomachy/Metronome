@@ -1,5 +1,5 @@
 import asyncdispatch, times
-import schedules
+import metronome
 
 scheduler oneShotSched:
   at(time=now()+initDuration(milliseconds=50), id="warm-cache", async=true):
