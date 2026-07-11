@@ -32,20 +32,19 @@ jobs:
         curl https://nim-lang.org/choosenim/init.sh -sSf > init.sh
         sh init.sh -y
 
-    - name: Run Tests and Generate Coverage
-      run: |
-        export PATH=$HOME/.nimble/bin:$PATH
-        nimble coverage
-
     - name: Generate HTML Documentation
       run: |
         export PATH=$HOME/.nimble/bin:$PATH
         nimble docs
         touch docs/.nojekyll
 
-    - name: Generate Coverage Report
+    - name: Run Tests and Generate Coverage
       run: |
-        ./code_coverage.sh
+        export PATH=$HOME/.nimble/bin:$PATH
+        nimble coverage
+
+    - name: Verify Coverage Badge Is Current
+      run: git diff --exit-code -- docs/coverage.svg
 
     - name: Commit Badge and Documentation
       if: github.event_name == 'push' && github.ref == 'refs/heads/master'
