@@ -155,25 +155,30 @@ metronome:
 
 <h2><a class="toc-backref" id="metronome-customize-scheduler" href="#metronome-customize-scheduler">Customize Scheduler</a></h2><p>Sometimes, you want to run the scheduler in parallel with other libraries. In this case, you can create your own scheduler by macro scheduler and start it later.</p>
 <p>Below is an example of running Metronome and Prologue in one process.::</p>
-<pre>import times, asyncdispatch, metronome, prologue
+<pre>import std/[asyncdispatch, logging, times]
+import metronome, prologue
+
+let fileLogger = newFileLogger(&quot;messages.log&quot;, mode=fmAppend)
 
 scheduler mySched:
-  every(seconds=1, id=&quot;sync tick&quot;):
-    echo(&quot;sync tick, seconds=1 &quot;, now())
+  every(seconds=1, id=&quot;tick&quot;, async=true):
+    let tickTime = now()
+    echo(&quot;tick, seconds=1 &quot;, tickTime)
+    fileLogger.log(lvlInfo, &quot;1 second tick: &quot;, tickTime)
 
 proc hello*(ctx: Context) {.async.} =
   resp &quot;&lt;h1&gt;Hello, Prologue! It's alive!&lt;/h1&gt;&quot;
 
-proc main() =
+proc main() {.async.} =
   asyncCheck mySched.start()
   
   let settings = prologue.newSettings()
   var app = newApp(settings=settings)
   app.addRoute(&quot;/&quot;, hello)
-  app.run()
+  await app.runAsync()
 
 when isMainModule:
-  main()</pre>
+  waitFor main()</pre>
 
 <h2><a class="toc-backref" id="metronome-set-start-time-and-end-time" href="#metronome-set-start-time-and-end-time">Set Start Time and End Time</a></h2><p>You can limit the schedules running in a designated range of time by specifying startTime and endTime.</p>
 <p>For example::</p>
@@ -284,7 +289,7 @@ sched.stopAll()</pre>
       <div class="twelve-columns footer">
         <span class="nim-sprite"></span>
         <br>
-        <small style="color: var(--hint);">Made with Nim. Generated: 2026-07-12 01:03:20 UTC</small>
+        <small style="color: var(--hint);">Made with Nim. Generated: 2026-07-12 01:22:55 UTC</small>
       </div>
     </div>
   </div>
