@@ -14,6 +14,11 @@ proc syncNoop() {.thread, gcsafe.} =
 var macroErrorHandlerCalls = 0
 var macroOnceCalls = 0
 
+type MacroGcState = ref object
+  calls: int
+
+var macroGcState = MacroGcState()
+
 proc macroErrorHandler(fut: Future[void]) {.gcsafe.} =
   discard fut.readError()
   macroErrorHandlerCalls.inc
@@ -36,6 +41,13 @@ test "endTime":
     return true
 
   check (waitFor(main()))
+
+test "Async scheduler jobs can access global GC-managed state":
+  scheduler testGlobalGcState:
+    every(seconds=1, id="global-gc-state", async=true):
+      macroGcState.calls.inc
+
+  check testGlobalGcState.listJobs == @["global-gc-state"]
 
 test "Scheduler lists and controls registered jobs":
   let scheduler = initScheduler(newSettings())

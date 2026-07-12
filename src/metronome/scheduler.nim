@@ -23,8 +23,8 @@ type
   JobErrorHandler* = proc (fut: Future[void]) {.closure, gcsafe.}
   ## Handles a failed scheduled job future.
 
-  BeaterAsyncProc* = proc (): Future[void] {.gcsafe, closure.}
-  ## Async proc to be scheduled.
+  BeaterAsyncProc* = proc (): Future[void] {.closure.}
+  ## Async proc to be scheduled on the event-loop thread.
 
   BeaterThreadProc* = proc (): void {.gcsafe, thread.}
   ## Thread proc to be scheduled.

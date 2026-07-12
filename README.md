@@ -26,7 +26,9 @@ Features:
 ## Getting Started
 
 ```bash
-nimble install metronome
+nimble install https://github.com/titanomachy/Metronome
+
+# (not yet) nimble install metronome
 ```
 
 ## Usage
