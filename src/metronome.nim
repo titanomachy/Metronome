@@ -118,25 +118,30 @@
 ##
 ## Below is an example of running Metronome and Prologue in one process.::
 ##
-##     import times, asyncdispatch, metronome, prologue
+##     import std/[asyncdispatch, logging, times]
+##     import metronome, prologue
+##
+##     let fileLogger = newFileLogger("messages.log", mode=fmAppend)
 ##
 ##     scheduler mySched:
-##       every(seconds=1, id="sync tick"):
-##         echo("sync tick, seconds=1 ", now())
+##       every(seconds=1, id="tick", async=true):
+##         let tickTime = now()
+##         echo("tick, seconds=1 ", tickTime)
+##         fileLogger.log(lvlInfo, "1 second tick: ", tickTime)
 ##
 ##     proc hello*(ctx: Context) {.async.} =
 ##       resp "<h1>Hello, Prologue! It's alive!</h1>"
 ##
-##     proc main() =
+##     proc main() {.async.} =
 ##       asyncCheck mySched.start()
 ##
 ##       let settings = prologue.newSettings()
 ##       var app = newApp(settings=settings)
 ##       app.addRoute("/", hello)
-##       app.run()
+##       await app.runAsync()
 ##
 ##     when isMainModule:
-##       main()
+##       waitFor main()
 ##
 ## ## Set Start Time and End Time
 ##

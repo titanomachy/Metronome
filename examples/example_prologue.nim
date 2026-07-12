@@ -1,21 +1,27 @@
-import times, asyncdispatch, metronome, prologue
+import std/[asyncdispatch, logging, times]
+import metronome, prologue
+
+let fileLogger = newFileLogger("messages.log", mode=fmAppend)
 
 scheduler mySched:
-  every(seconds=1, id="sync tick"):
-    echo("sync tick, seconds=1 ", now())
+  every(seconds=1, id="tick", async=true):
+    let tickTime = now()
+    echo("tick, seconds=1 ", tickTime)
+    fileLogger.log(lvlInfo, "1 second tick: ", tickTime)
 
 proc hello*(ctx: Context) {.async.} =
   resp "<h1>Hello, Prologue! It's alive!</h1>"
 
-proc main() =
+proc main() {.async.} =
   # Start the scheduler in the background of the async event loop
   asyncCheck mySched.start()
 
-  # Set up and run the Prologue web application
+  # Keep Prologue and Metronome on the same async dispatcher. The default
+  # blocking app.run() uses HTTPX worker threads and does not poll this loop.
   let settings = prologue.newSettings()
   var app = newApp(settings = settings)
   app.addRoute("/", hello)
-  app.run()
+  await app.runAsync()
 
 if isMainModule:
-  main()
+  waitFor main()
