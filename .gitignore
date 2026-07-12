@@ -11,3 +11,4 @@ nimble.develop
 nimble.paths
 nimbledeps
 .idea/
+messages.log

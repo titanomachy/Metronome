@@ -205,30 +205,54 @@ Sometimes, you want to run the scheduler in parallel with other libraries.
 In this case, you can create your own scheduler by macro `scheduler` and
 start it later.
 
-Below is an example showing how to run Metronome concurrently with the Prologue web framework in one process.
+Below is an example showing how to run Metronome concurrently with the Prologue
+web framework in one process. The scheduled job uses a GC-managed file logger,
+so it runs on the shared async event-loop thread.
 
 ```nim
-import times, asyncdispatch, metronome, prologue
+import std/[asyncdispatch, logging, times]
+import metronome, prologue
+
+let fileLogger = newFileLogger("messages.log", mode=fmAppend)
 
 scheduler mySched:
-  every(seconds=1, id="sync tick"):
-    echo("sync tick, seconds=1 ", now())
+  every(seconds=1, id="tick", async=true):
+    let tickTime = now()
+    echo("tick, seconds=1 ", tickTime)
+    fileLogger.log(lvlInfo, "1 second tick: ", tickTime)
 
 proc hello*(ctx: Context) {.async.} =
   resp "<h1>Hello, Prologue! It's alive!</h1>"
 
-proc main() =
+proc main() {.async.} =
   # Start the scheduler in the background of the async event loop
   asyncCheck mySched.start()
 
-  # Set up and run the Prologue web application
+  # Keep Prologue and Metronome on the same async dispatcher. The default
+  # blocking app.run() uses HTTPX worker threads and does not poll this loop.
   let settings = prologue.newSettings()
   var app = newApp(settings = settings)
   app.addRoute("/", hello)
-  app.run()
+  await app.runAsync()
 
 when isMainModule:
-  main()
+  waitFor main()
+```
+
+The logger appends to `messages.log` in the process working directory. Prologue's
+default HTTPX backend should use `runAsync()` as above so the main dispatcher
+continues to run Metronome jobs. Run the example with:
+
+```bash
+nim c --threads:on -r examples/example_prologue.nim
+```
+
+An application that intentionally retains the blocking `app.run()` form can
+instead select Prologue's standard async HTTP backend. For a Nimble binary
+package like the test project, use:
+
+```bash
+nimble run -d:usestd
 ```
 
 ### Set Start Time and End Time
@@ -275,8 +299,9 @@ The examples are the runnable counterparts to the snippets in this guide:
   [example_firetime_calculations.nim](examples/example_firetime_calculations.nim),
   and [example_one_shot.nim](examples/example_one_shot.nim) cover the matching
   sections above.
-* [example_prologue.nim](examples/example_prologue.nim) shows integration with
-  Prologue and requires that package in addition to Metronome.
+* [example_prologue.nim](examples/example_prologue.nim) shows async integration
+  with Prologue and a file logger, and requires Prologue in addition to
+  Metronome.
 
 Compile a standalone example with threads enabled, for example:
 
