@@ -1,6 +1,6 @@
 # Package
 
-version       = "0.4.0"
+version       = "0.4.2"
 author        = "titanomachy"
 description   = "Metronome is a Nim library for interval, cron, and one-shot jobs."
 license       = "MIT"
