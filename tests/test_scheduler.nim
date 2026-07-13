@@ -87,6 +87,7 @@ test "Scheduler accepts nil settings":
   ))
 
   waitFor scheduler.start()
+  waitFor sleepAsync(20)
 
   check scheduler.lastRun("nil-settings").isSome
 

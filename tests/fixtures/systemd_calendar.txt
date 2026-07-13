@@ -1,0 +1,43 @@
+# Reference results captured with systemd-analyze 261 (systemd 261.1).
+#
+# Each case was run as:
+#   systemd-analyze calendar --base-time="BASE" "EXPRESSION"
+#
+# Only deterministic fields are retained. CI does not invoke systemd; these
+# cases document the compatibility oracle used by tests/test_timers.nim.
+
+[amsterdam]
+base=2026-01-15 00:00:00 UTC
+expression=*-*-* 02:00:00 Europe/Amsterdam
+normalized=*-*-* 02:00:00 Europe/Amsterdam
+nextUtc=2026-01-15 01:00:00 UTC
+
+[fractional-rounding]
+base=2026-01-15 12:34:00 UTC
+expression=*-*-* *:*:00.9999995 UTC
+normalized=*-*-* *:*:01 UTC
+nextUtc=2026-01-15 12:34:01 UTC
+
+[third-last-day]
+base=2026-01-01 00:00:00 UTC
+expression=*-02~03 00:00:00 UTC
+normalized=*-02~03 00:00:00 UTC
+nextUtc=2026-02-26 00:00:00 UTC
+
+[weekday-and-date]
+base=2026-07-31 23:00:00 UTC
+expression=Mon..Fri *-*-01 02:00:00 UTC
+normalized=Mon..Fri *-*-01 02:00:00 UTC
+nextUtc=2026-09-01 02:00:00 UTC
+
+[spring-gap]
+base=2026-03-29 00:00:00 UTC
+expression=*-*-* 02:30:00 Europe/Amsterdam
+normalized=*-*-* 02:30:00 Europe/Amsterdam
+nextUtc=2026-03-30 00:30:00 UTC
+
+[fall-overlap]
+base=2026-10-24 23:00:00 UTC
+expression=*-*-* 02:30:00 Europe/Amsterdam
+normalized=*-*-* 02:30:00 Europe/Amsterdam
+nextUtc=2026-10-25 00:30:00 UTC

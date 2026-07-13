@@ -1,6 +1,6 @@
 ## # Metronome
 ##
-## A Nim scheduler library for interval, cron, and one-shot jobs.
+## A Nim scheduler library for interval, cron, timer, and one-shot jobs.
 ##
 ## ## Schedule By Every
 ##
@@ -97,6 +97,29 @@
 ## Cron fields stay at the requested local wall-clock hour across DST changes.
 ## See the generated ``metronome/timezones`` module documentation for database
 ## version reporting, supported-name lookup, and local-time edge-case behavior.
+##
+## ## Schedule by Timer
+##
+## Import ``metronome/timers`` separately to schedule jobs with systemd-style
+## calendar expressions. The timer parser and embedded timezone database stay
+## out of applications that import only ``metronome``::
+##
+##     import metronome
+##     import metronome/timers
+##
+##     scheduler timerSched:
+##       timer(
+##         onCalendar="*-*-* 02:00:00 Europe/Amsterdam",
+##         id="nightly",
+##         async=true
+##       ):
+##         echo "Running nightly"
+##
+## Syntax: ``Year-Month-Day Hour:Minute:Second TimeZone``.
+## Fractional seconds retain one-microsecond calendar resolution, but event-loop
+## dispatch remains best-effort and normally has millisecond-scale accuracy.
+## See the generated ``metronome/timers`` documentation for supported systemd
+## forms and compatibility boundaries.
 ##
 ## Note:
 ##
@@ -305,6 +328,7 @@ import metronome/cron/cron
 export logger
 export BeaterAsyncProc
 export BeaterThreadProc
+export NextRunProc
 export Throttler
 export initThrottler
 export throttled

@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+### Systemd-style calendar timers
+
+- Added the optional `metronome/timers` module with systemd-style
+  `OnCalendar` expressions, repeated expressions, shorthands, last-day rules,
+  weekday constraints, and exact microsecond deadline calculations.
+- Added `timer(onCalendar="...")` beside the existing scheduler DSL commands,
+  plus direct `newTimer`, `getNext`, and `initTimerBeater` APIs.
+- Added embedded IANA timezone resolution for timer suffixes, including
+  deterministic DST gap, overlap, historical, and post-2037 behavior.
+- Added a generic custom-schedule callback to the scheduler core and changed
+  sub-millisecond waits so they are never intentionally dispatched early.
+- Documented that execution remains best-effort and does not implement
+  systemd service-manager options such as `AccuracySec` or `Persistent`.
+
 ### Named IANA timezone support
 
 - Added the optional `metronome/timezones` module with `namedTimezone`,

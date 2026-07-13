@@ -7,7 +7,7 @@
 [![CI](https://github.com/titanomachy/Metronome/actions/workflows/ci.yml/badge.svg)](https://github.com/titanomachy/Metronome/actions/workflows/ci.yml)
 [![Coverage](docs/coverage.svg)](https://github.com/titanomachy/Metronome/actions)
 
-A Nim scheduler library for interval, cron, and one-shot jobs.
+A Nim scheduler library for interval, cron, timer, and one-shot jobs.
 
 Read the [documentation](https://titanomachy.github.io/Metronome/metronome.html).
 
@@ -15,11 +15,13 @@ Features:
 
 * Simple to use API for scheduling jobs.
 * Support scheduling both async and sync procs.
-* Interval, cron, and one-shot scheduling.
-* Timezone-aware cron schedules, including optional embedded IANA names.
+* Interval, cron, timer, and one-shot scheduling.
+* Timezone-aware cron and systemd-style calendar schedules, including optional
+  embedded IANA names.
 * Job-level and scheduler-level async error handling.
 * Pause, resume, stop, and inspect registered jobs by id.
 * Optional interval jitter to spread out job launches.
+* Zero-dependency code
 
 ## Getting Started
 
@@ -188,6 +190,58 @@ lists, `#`, and `L`, and
 [example_cron_timezone.nim](examples/example_cron_timezone.nim) for timezone
 handling.
 
+### Schedule by Timer
+
+Import the optional `metronome/timers` module to use a systemd-style
+`OnCalendar` expression beside `every` and `cron`:
+
+```text
+Syntax: Year-Month-Day Hour:Minute:Second TimeZone
+Example: OnCalendar=*-*-* 02:00:00 Europe/Amsterdam
+```
+
+```nim
+import metronome
+import metronome/timers
+
+scheduler timerSched:
+  timer(
+    onCalendar="*-*-* 02:00:00 Europe/Amsterdam",
+    id="nightly",
+    async=true
+  ):
+    echo "Running nightly"
+```
+
+The optional weekday prefix, `*`, comma-separated lists, `..` ranges, `/`
+repetitions, `~` last-day forms, and the standard `minutely` through
+`semiannually` shorthands are supported. A timer may also combine repeated
+expressions:
+
+```nim
+let reporting = newTimer(["daily UTC", "Mon *-*-* 09:00:00 Europe/Amsterdam"])
+```
+
+Explicit `UTC` and exact embedded IANA names are resolved once. If the suffix
+is omitted, the input `DateTime` timezone is used. Weekday and date constraints
+must both match. Nonexistent wall-clock occurrences in a DST gap are skipped;
+an overlap uses its earlier occurrence.
+
+The seconds field accepts fractions, such as
+`*-*-* *:*:00.123456 UTC`. Calendar matching and `getNext` retain one
+microsecond of resolution, making timers more expressive than Metronome's
+minute-resolution cron evaluator. The async event-loop wait is normally
+millisecond-scale and affected by operating-system load, so dispatch is
+best-effort rather than a real-time guarantee.
+
+This interface models systemd's calendar-event grammar, not complete `.timer`
+units. It does not implement `AccuracySec`, persistent catch-up, randomized
+delay, monotonic boot timers, or wake-from-suspend. See the
+[systemd calendar-event documentation](https://www.freedesktop.org/software/systemd/man/latest/systemd.time.html)
+for the interface on which it is based and
+[example_timer_scheduler.nim](examples/example_timer_scheduler.nim) for a
+runnable example.
+
 ### One-Shot Jobs
 
 Use `at` inside a `metronome` or `scheduler` block to schedule a job once at a
@@ -331,6 +385,7 @@ The examples are the runnable counterparts to the snippets in this guide:
 * [example_cron_scheduler.nim](examples/example_cron_scheduler.nim) covers
   lists and the weekday `#` and `L` forms.
 * [example_cron_timezone.nim](examples/example_cron_timezone.nim),
+  [example_timer_scheduler.nim](examples/example_timer_scheduler.nim),
   [example_firetime_calculations.nim](examples/example_firetime_calculations.nim),
   and [example_one_shot.nim](examples/example_one_shot.nim) cover the matching
   sections above.
@@ -536,9 +591,10 @@ nimble docs
 ```
 
 This compiles the root scheduler documentation and the optional named-timezone
-module, then outputs the generated files directly into the `docs/` folder. You
-can open `docs/metronome.html` for the scheduler API or
-`docs/timezones.html` for named IANA timezone support.
+and calendar-timer modules, then outputs the generated files directly into the
+`docs/` folder. You can open `docs/metronome.html` for the scheduler API,
+`docs/timezones.html` for named IANA timezone support, or `docs/timers.html`
+for systemd-style calendar timers.
 
 ### Updating the embedded timezone database
 

@@ -28,7 +28,7 @@
     <label for="nav-toggle" id="nav-overlay"></label>
     <div class="container">
       <h1 class="title">Index</h1>
-      Modules: <a href="metronome.html">metronome</a>, <a href="metronome/cron/cron.html">metronome/cron/cron</a>, <a href="metronome/cron/expr.html">metronome/cron/expr</a>, <a href="metronome/cron/field.html">metronome/cron/field</a>, <a href="metronome/cron/parser.html">metronome/cron/parser</a>, <a href="metronome/scheduler.html">metronome/scheduler</a>, <a href="timezones.html">timezones</a>.<br/><p /><h2>API symbols</h2>
+      Modules: <a href="metronome.html">metronome</a>, <a href="metronome/cron/cron.html">metronome/cron/cron</a>, <a href="metronome/cron/expr.html">metronome/cron/expr</a>, <a href="metronome/cron/field.html">metronome/cron/field</a>, <a href="metronome/cron/parser.html">metronome/cron/parser</a>, <a href="metronome/scheduler.html">metronome/scheduler</a>, <a href="timers.html">timers</a>, <a href="timezones.html">timezones</a>.<br/><p /><h2>API symbols</h2>
 <dl><dt><a name="%60%24%60" href="#%60%24%60"><span>`$`:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
           data-doc-search-tag="expr: proc `$`(expr: Expr): string" href="metronome/cron/expr.html#%24%2CExpr">expr: proc `$`(expr: Expr): string</a></li>
@@ -54,6 +54,10 @@
 <dt><a name="BeaterThreadProc" href="#BeaterThreadProc"><span>BeaterThreadProc:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
           data-doc-search-tag="scheduler: type BeaterThreadProc" href="metronome/scheduler.html#BeaterThreadProc">scheduler: type BeaterThreadProc</a></li>
+          </ul></dd>
+<dt><a name="CalendarTimer" href="#CalendarTimer"><span>CalendarTimer:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="timers: object CalendarTimer" href="timers.html#CalendarTimer">timers: object CalendarTimer</a></li>
           </ul></dd>
 <dt><a name="Cron" href="#Cron"><span>Cron:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
@@ -172,6 +176,8 @@
           data-doc-search-tag="cron: proc getNext(expr: Expr; field: Field; dt: DateTime): Option[int]" href="metronome/cron/cron.html#getNext%2CExpr%2CField%2CDateTime">cron: proc getNext(expr: Expr; field: Field; dt: DateTime): Option[int]</a></li>
           <li><a class="reference external"
           data-doc-search-tag="cron: proc getNext(field: Field; dt: DateTime): Option[int]" href="metronome/cron/cron.html#getNext%2CField%2CDateTime">cron: proc getNext(field: Field; dt: DateTime): Option[int]</a></li>
+          <li><a class="reference external"
+          data-doc-search-tag="timers: proc getNext(timer: CalendarTimer; current: DateTime): Option[DateTime]" href="timers.html#getNext%2CCalendarTimer%2CDateTime">timers: proc getNext(timer: CalendarTimer; current: DateTime): Option[DateTime]</a></li>
           </ul></dd>
 <dt><a name="getNextForAll" href="#getNextForAll"><span>getNextForAll:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
@@ -255,6 +261,22 @@
            throttleNum: int = 1; errorHandler: JobErrorHandler = nil): Beater" href="metronome/scheduler.html#initBeater%2CDateTime%2CBeaterThreadProc%2Cstring%2Cint%2CJobErrorHandler">scheduler: proc initBeater(time: DateTime; threadProc: BeaterThreadProc; id: string = &quot;&quot;;
            throttleNum: int = 1; errorHandler: JobErrorHandler = nil): Beater</a></li>
           <li><a class="reference external"
+          data-doc-search-tag="scheduler: proc initBeater(nextRunProc: NextRunProc; asyncProc: BeaterAsyncProc;
+           startTime: Option[DateTime] = none(DateTime);
+           endTime: Option[DateTime] = none(DateTime); id: string = &quot;&quot;;
+           throttleNum: int = 1; errorHandler: JobErrorHandler = nil): Beater" href="metronome/scheduler.html#initBeater%2CNextRunProc%2CBeaterAsyncProc%2COption%5BDateTime%5D%2COption%5BDateTime%5D%2Cstring%2Cint%2CJobErrorHandler">scheduler: proc initBeater(nextRunProc: NextRunProc; asyncProc: BeaterAsyncProc;
+           startTime: Option[DateTime] = none(DateTime);
+           endTime: Option[DateTime] = none(DateTime); id: string = &quot;&quot;;
+           throttleNum: int = 1; errorHandler: JobErrorHandler = nil): Beater</a></li>
+          <li><a class="reference external"
+          data-doc-search-tag="scheduler: proc initBeater(nextRunProc: NextRunProc; threadProc: BeaterThreadProc;
+           startTime: Option[DateTime] = none(DateTime);
+           endTime: Option[DateTime] = none(DateTime); id: string = &quot;&quot;;
+           throttleNum: int = 1; errorHandler: JobErrorHandler = nil): Beater" href="metronome/scheduler.html#initBeater%2CNextRunProc%2CBeaterThreadProc%2COption%5BDateTime%5D%2COption%5BDateTime%5D%2Cstring%2Cint%2CJobErrorHandler">scheduler: proc initBeater(nextRunProc: NextRunProc; threadProc: BeaterThreadProc;
+           startTime: Option[DateTime] = none(DateTime);
+           endTime: Option[DateTime] = none(DateTime); id: string = &quot;&quot;;
+           throttleNum: int = 1; errorHandler: JobErrorHandler = nil): Beater</a></li>
+          <li><a class="reference external"
           data-doc-search-tag="scheduler: proc initBeater(interval: TimeInterval; asyncProc: BeaterAsyncProc;
            startTime: Option[DateTime] = none(DateTime);
            endTime: Option[DateTime] = none(DateTime); id: string = &quot;&quot;;
@@ -282,6 +304,24 @@
 <dt><a name="initThrottler" href="#initThrottler"><span>initThrottler:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
           data-doc-search-tag="scheduler: proc initThrottler(num: int = 1): Throttler" href="metronome/scheduler.html#initThrottler%2Cint">scheduler: proc initThrottler(num: int = 1): Throttler</a></li>
+          </ul></dd>
+<dt><a name="initTimerBeater" href="#initTimerBeater"><span>initTimerBeater:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="timers: proc initTimerBeater(timer: CalendarTimer; asyncProc: BeaterAsyncProc;
+                startTime: Option[DateTime] = none(DateTime);
+                endTime: Option[DateTime] = none(DateTime); id: string = &quot;&quot;;
+                throttleNum: int = 1; errorHandler: JobErrorHandler = nil): Beater" href="timers.html#initTimerBeater%2CCalendarTimer%2CBeaterAsyncProc%2COption%5BDateTime%5D%2COption%5BDateTime%5D%2Cstring%2Cint%2CJobErrorHandler">timers: proc initTimerBeater(timer: CalendarTimer; asyncProc: BeaterAsyncProc;
+                startTime: Option[DateTime] = none(DateTime);
+                endTime: Option[DateTime] = none(DateTime); id: string = &quot;&quot;;
+                throttleNum: int = 1; errorHandler: JobErrorHandler = nil): Beater</a></li>
+          <li><a class="reference external"
+          data-doc-search-tag="timers: proc initTimerBeater(timer: CalendarTimer; threadProc: BeaterThreadProc;
+                startTime: Option[DateTime] = none(DateTime);
+                endTime: Option[DateTime] = none(DateTime); id: string = &quot;&quot;;
+                throttleNum: int = 1; errorHandler: JobErrorHandler = nil): Beater" href="timers.html#initTimerBeater%2CCalendarTimer%2CBeaterThreadProc%2COption%5BDateTime%5D%2COption%5BDateTime%5D%2Cstring%2Cint%2CJobErrorHandler">timers: proc initTimerBeater(timer: CalendarTimer; threadProc: BeaterThreadProc;
+                startTime: Option[DateTime] = none(DateTime);
+                endTime: Option[DateTime] = none(DateTime); id: string = &quot;&quot;;
+                throttleNum: int = 1; errorHandler: JobErrorHandler = nil): Beater</a></li>
           </ul></dd>
 <dt><a name="JobErrorHandler" href="#JobErrorHandler"><span>JobErrorHandler:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
@@ -389,11 +429,21 @@
 <li><a class="reference external"
           data-doc-search-tag="expr: proc newStepExpr(expr: Expr; step: int): Expr" href="metronome/cron/expr.html#newStepExpr%2CExpr%2Cint">expr: proc newStepExpr(expr: Expr; step: int): Expr</a></li>
           </ul></dd>
+<dt><a name="newTimer" href="#newTimer"><span>newTimer:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="timers: proc newTimer(onCalendar: openArray[string]): CalendarTimer" href="timers.html#newTimer%2CopenArray%5Bstring%5D">timers: proc newTimer(onCalendar: openArray[string]): CalendarTimer</a></li>
+          <li><a class="reference external"
+          data-doc-search-tag="timers: proc newTimer(onCalendar: string): CalendarTimer" href="timers.html#newTimer%2Cstring">timers: proc newTimer(onCalendar: string): CalendarTimer</a></li>
+          </ul></dd>
 <dt><a name="nextRun" href="#nextRun"><span>nextRun:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
           data-doc-search-tag="scheduler: proc nextRun(beater: Beater): Option[DateTime]" href="metronome/scheduler.html#nextRun%2CBeater">scheduler: proc nextRun(beater: Beater): Option[DateTime]</a></li>
           <li><a class="reference external"
           data-doc-search-tag="scheduler: proc nextRun(self: Scheduler; id: string): Option[DateTime]" href="metronome/scheduler.html#nextRun%2CScheduler%2Cstring">scheduler: proc nextRun(self: Scheduler; id: string): Option[DateTime]</a></li>
+          </ul></dd>
+<dt><a name="NextRunProc" href="#NextRunProc"><span>NextRunProc:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="scheduler: type NextRunProc" href="metronome/scheduler.html#NextRunProc">scheduler: type NextRunProc</a></li>
           </ul></dd>
 <dt><a name="parseDayOfMonths" href="#parseDayOfMonths"><span>parseDayOfMonths:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
@@ -507,7 +557,7 @@
       <div class="twelve-columns footer">
         <span class="nim-sprite"></span>
         <br>
-        <small style="color: var(--hint);">Made with Nim. Generated: 2026-07-13 15:52:42 UTC</small>
+        <small style="color: var(--hint);">Made with Nim. Generated: 2026-07-14 00:02:03 UTC</small>
       </div>
     </div>
   </div>

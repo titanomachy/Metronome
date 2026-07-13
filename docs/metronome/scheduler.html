@@ -70,15 +70,19 @@
   of bkCron:
     cron*: Cron
     timezone*: Option[Timezone]
+  of bkCustom:
+    nextRunProc*: NextRunProc
   of bkOnce:
     nil">Beater</a></li>
 <li><a class="reference" href="#BeaterAsyncProc" title="BeaterAsyncProc = proc (): Future[void] {.closure.}">BeaterAsyncProc</a></li>
 <li><a class="reference" href="#BeaterKind" title="BeaterKind {.pure.} = enum
-  bkInterval, bkCron, bkOnce">BeaterKind</a></li>
+  bkInterval, bkCron, bkCustom, bkOnce">BeaterKind</a></li>
 <li><a class="reference" href="#BeaterState" title="BeaterState {.pure.} = enum
   bsRunning, bsPaused, bsStopped">BeaterState</a></li>
 <li><a class="reference" href="#BeaterThreadProc" title="BeaterThreadProc = proc (): void {.gcsafe, thread.}">BeaterThreadProc</a></li>
 <li><a class="reference" href="#JobErrorHandler" title="JobErrorHandler = proc (fut: Future[void]) {.closure, gcsafe.}">JobErrorHandler</a></li>
+<li><a class="reference" href="#NextRunProc" title="NextRunProc = proc (current: DateTime): Option[DateTime] {.closure, gcsafe,
+    raises: [].}">NextRunProc</a></li>
 <li><a class="reference" href="#Scheduler" title="Scheduler = ref object">Scheduler</a></li>
 <li><a class="reference" href="#Settings" title="Settings = ref object
   appName*: string
@@ -163,6 +167,20 @@
            endTime: Option[DateTime] = none(DateTime); id: string = &quot;&quot;;
            throttleNum: int = 1; errorHandler: JobErrorHandler = nil;
            jitter: TimeInterval = initTimeInterval()): Beater</a></li>
+<li><a class="reference" href="#initBeater%2CNextRunProc%2CBeaterAsyncProc%2COption%5BDateTime%5D%2COption%5BDateTime%5D%2Cstring%2Cint%2CJobErrorHandler" title="initBeater(nextRunProc: NextRunProc; asyncProc: BeaterAsyncProc;
+           startTime: Option[DateTime] = none(DateTime);
+           endTime: Option[DateTime] = none(DateTime); id: string = &quot;&quot;;
+           throttleNum: int = 1; errorHandler: JobErrorHandler = nil): Beater">initBeater(nextRunProc: NextRunProc; asyncProc: BeaterAsyncProc;
+           startTime: Option[DateTime] = none(DateTime);
+           endTime: Option[DateTime] = none(DateTime); id: string = &quot;&quot;;
+           throttleNum: int = 1; errorHandler: JobErrorHandler = nil): Beater</a></li>
+<li><a class="reference" href="#initBeater%2CNextRunProc%2CBeaterThreadProc%2COption%5BDateTime%5D%2COption%5BDateTime%5D%2Cstring%2Cint%2CJobErrorHandler" title="initBeater(nextRunProc: NextRunProc; threadProc: BeaterThreadProc;
+           startTime: Option[DateTime] = none(DateTime);
+           endTime: Option[DateTime] = none(DateTime); id: string = &quot;&quot;;
+           throttleNum: int = 1; errorHandler: JobErrorHandler = nil): Beater">initBeater(nextRunProc: NextRunProc; threadProc: BeaterThreadProc;
+           startTime: Option[DateTime] = none(DateTime);
+           endTime: Option[DateTime] = none(DateTime); id: string = &quot;&quot;;
+           throttleNum: int = 1; errorHandler: JobErrorHandler = nil): Beater</a></li>
 <li><a class="reference" href="#initBeater%2CDateTime%2CBeaterAsyncProc%2Cstring%2Cint%2CJobErrorHandler" title="initBeater(time: DateTime; asyncProc: BeaterAsyncProc; id: string = &quot;&quot;;
            throttleNum: int = 1; errorHandler: JobErrorHandler = nil): Beater">initBeater(time: DateTime; asyncProc: BeaterAsyncProc; id: string = &quot;&quot;;
            throttleNum: int = 1; errorHandler: JobErrorHandler = nil): Beater</a></li>
@@ -319,6 +337,8 @@
   <span class="Keyword">of</span> <span class="Identifier">bkCron</span><span class="Other">:</span>
     <span class="Identifier">cron</span><span class="Operator">*</span><span class="Other">:</span> <a href="cron/cron.html#Cron"><span class="Identifier">Cron</span></a>
     <span class="Identifier">timezone</span><span class="Operator">*</span><span class="Other">:</span> <span class="Identifier">Option</span><span class="Other">[</span><span class="Identifier">Timezone</span><span class="Other">]</span>
+  <span class="Keyword">of</span> <span class="Identifier">bkCustom</span><span class="Other">:</span>
+    <span class="Identifier">nextRunProc</span><span class="Operator">*</span><span class="Other">:</span> <a href="#NextRunProc"><span class="Identifier">NextRunProc</span></a>
   <span class="Keyword">of</span> <span class="Identifier">bkOnce</span><span class="Other">:</span>
     <span class="Keyword">nil</span></pre></dt>
   <dd>
@@ -337,7 +357,7 @@
 </div>
 <div id="BeaterKind">
   <dt><pre><a href="#BeaterKind"><span class="Identifier">BeaterKind</span></a> {.<span class="Identifier">pure</span>.} <span class="Other">=</span> <span class="Keyword">enum</span>
-  <span class="Identifier">bkInterval</span><span class="Other">,</span> <span class="Identifier">bkCron</span><span class="Other">,</span> <span class="Identifier">bkOnce</span></pre></dt>
+  <span class="Identifier">bkInterval</span><span class="Other">,</span> <span class="Identifier">bkCron</span><span class="Other">,</span> <span class="Identifier">bkCustom</span><span class="Other">,</span> <span class="Identifier">bkOnce</span></pre></dt>
   <dd>
     
     
@@ -363,6 +383,15 @@
 </div>
 <div id="JobErrorHandler">
   <dt><pre><a href="#JobErrorHandler"><span class="Identifier">JobErrorHandler</span></a> <span class="Other">=</span> <span class="Keyword">proc</span> <span class="Other">(</span><span class="Identifier">fut</span><span class="Other">:</span> <span class="Identifier">Future</span><span class="Other">[</span><span class="Identifier">void</span><span class="Other">]</span><span class="Other">)</span> {.<span class="Identifier">closure</span><span class="Other">,</span> <span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">gcsafe</span></span>.}</pre></dt>
+  <dd>
+    
+    
+    
+  </dd>
+</div>
+<div id="NextRunProc">
+  <dt><pre><a href="#NextRunProc"><span class="Identifier">NextRunProc</span></a> <span class="Other">=</span> <span class="Keyword">proc</span> <span class="Other">(</span><span class="Identifier">current</span><span class="Other">:</span> <span class="Identifier">DateTime</span><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">Option</span><span class="Other">[</span><span class="Identifier">DateTime</span><span class="Other">]</span> {.<span class="Identifier">closure</span><span class="Other">,</span> <span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">gcsafe</span><span class="Other">,</span>
+    <span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
   <dd>
     
     
@@ -476,7 +505,7 @@
 </ul>
 </li>
 </ul>
-<p>Cron beaters delegate to cron matching, optionally in their configured timezone. One-shot beaters return their scheduled time only while <tt class="docutils literal"><span class="pre"><span class="Identifier">prev</span></span></tt> is none.</p>
+<p>Cron beaters delegate to cron matching, optionally in their configured timezone. Custom beaters delegate to their strictly-future next-run callback. One-shot beaters return their scheduled time only while <tt class="docutils literal"><span class="pre"><span class="Identifier">prev</span></span></tt> is none.</p>
 <p>If <tt class="docutils literal"><span class="pre"><span class="Identifier">self</span><span class="Operator">.</span><span class="Identifier">endTime</span></span></tt> is set and the computed fire time is later than it, none(DateTime) is returned. A fire time exactly equal to <tt class="docutils literal"><span class="pre"><span class="Identifier">endTime</span></span></tt> is still allowed.</p>
 
     
@@ -565,6 +594,32 @@
     <p>Initialize a Beater, which kind is bkInterval.</p>
 <p>startTime, endTime, and jitter are optional. Jitter adds a random non-negative delay to each interval launch without changing the base interval cadence.</p>
 
+    
+  </dd>
+</div>
+<div id="initBeater,NextRunProc,BeaterAsyncProc,Option[DateTime],Option[DateTime],string,int,JobErrorHandler">
+  <dt><pre><span class="Keyword">proc</span> <a href="#initBeater%2CNextRunProc%2CBeaterAsyncProc%2COption%5BDateTime%5D%2COption%5BDateTime%5D%2Cstring%2Cint%2CJobErrorHandler"><span class="Identifier">initBeater</span></a><span class="Other">(</span><span class="Identifier">nextRunProc</span><span class="Other">:</span> <a href="#NextRunProc"><span class="Identifier">NextRunProc</span></a><span class="Other">;</span> <span class="Identifier">asyncProc</span><span class="Other">:</span> <a href="#BeaterAsyncProc"><span class="Identifier">BeaterAsyncProc</span></a><span class="Other">;</span>
+                <span class="Identifier">startTime</span><span class="Other">:</span> <span class="Identifier">Option</span><span class="Other">[</span><span class="Identifier">DateTime</span><span class="Other">]</span> <span class="Other">=</span> <span class="Identifier">none</span><span class="Other">(</span><span class="Identifier">DateTime</span><span class="Other">)</span><span class="Other">;</span>
+                <span class="Identifier">endTime</span><span class="Other">:</span> <span class="Identifier">Option</span><span class="Other">[</span><span class="Identifier">DateTime</span><span class="Other">]</span> <span class="Other">=</span> <span class="Identifier">none</span><span class="Other">(</span><span class="Identifier">DateTime</span><span class="Other">)</span><span class="Other">;</span> <span class="Identifier">id</span><span class="Other">:</span> <span class="Identifier">string</span> <span class="Other">=</span> <span class="StringLit">&quot;&quot;</span><span class="Other">;</span>
+                <span class="Identifier">throttleNum</span><span class="Other">:</span> <span class="Identifier">int</span> <span class="Other">=</span> <span class="DecNumber">1</span><span class="Other">;</span> <span class="Identifier">errorHandler</span><span class="Other">:</span> <a href="#JobErrorHandler"><span class="Identifier">JobErrorHandler</span></a> <span class="Other">=</span> <span class="Keyword">nil</span><span class="Other">)</span><span class="Other">:</span> <a href="#Beater"><span class="Identifier">Beater</span></a> {.
+    <span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">ValueError</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">TimeEffect</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">forbids</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
+  <dd>
+    
+    <p>Initialize a custom-schedule Beater.</p>
+<p>The callback must return the first instant strictly later than its input. startTime and endTime constrain the resulting schedule.</p>
+
+    
+  </dd>
+</div>
+<div id="initBeater,NextRunProc,BeaterThreadProc,Option[DateTime],Option[DateTime],string,int,JobErrorHandler">
+  <dt><pre><span class="Keyword">proc</span> <a href="#initBeater%2CNextRunProc%2CBeaterThreadProc%2COption%5BDateTime%5D%2COption%5BDateTime%5D%2Cstring%2Cint%2CJobErrorHandler"><span class="Identifier">initBeater</span></a><span class="Other">(</span><span class="Identifier">nextRunProc</span><span class="Other">:</span> <a href="#NextRunProc"><span class="Identifier">NextRunProc</span></a><span class="Other">;</span> <span class="Identifier">threadProc</span><span class="Other">:</span> <a href="#BeaterThreadProc"><span class="Identifier">BeaterThreadProc</span></a><span class="Other">;</span>
+                <span class="Identifier">startTime</span><span class="Other">:</span> <span class="Identifier">Option</span><span class="Other">[</span><span class="Identifier">DateTime</span><span class="Other">]</span> <span class="Other">=</span> <span class="Identifier">none</span><span class="Other">(</span><span class="Identifier">DateTime</span><span class="Other">)</span><span class="Other">;</span>
+                <span class="Identifier">endTime</span><span class="Other">:</span> <span class="Identifier">Option</span><span class="Other">[</span><span class="Identifier">DateTime</span><span class="Other">]</span> <span class="Other">=</span> <span class="Identifier">none</span><span class="Other">(</span><span class="Identifier">DateTime</span><span class="Other">)</span><span class="Other">;</span> <span class="Identifier">id</span><span class="Other">:</span> <span class="Identifier">string</span> <span class="Other">=</span> <span class="StringLit">&quot;&quot;</span><span class="Other">;</span>
+                <span class="Identifier">throttleNum</span><span class="Other">:</span> <span class="Identifier">int</span> <span class="Other">=</span> <span class="DecNumber">1</span><span class="Other">;</span> <span class="Identifier">errorHandler</span><span class="Other">:</span> <a href="#JobErrorHandler"><span class="Identifier">JobErrorHandler</span></a> <span class="Other">=</span> <span class="Keyword">nil</span><span class="Other">)</span><span class="Other">:</span> <a href="#Beater"><span class="Identifier">Beater</span></a> {.
+    <span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">ValueError</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">TimeEffect</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">forbids</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
+  <dd>
+    
+    Initialize a thread-backed custom-schedule Beater.
     
   </dd>
 </div>
@@ -948,7 +1003,7 @@
       <div class="twelve-columns footer">
         <span class="nim-sprite"></span>
         <br>
-        <small style="color: var(--hint);">Made with Nim. Generated: 2026-07-13 15:52:41 UTC</small>
+        <small style="color: var(--hint);">Made with Nim. Generated: 2026-07-14 00:02:02 UTC</small>
       </div>
     </div>
   </div>

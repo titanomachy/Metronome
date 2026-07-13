@@ -2,7 +2,7 @@
 
 version       = "0.4.2"
 author        = "titanomachy"
-description   = "Metronome is a Nim library for interval, cron, and one-shot jobs."
+description   = "Metronome is a Nim library for interval, cron, timer, and one-shot jobs."
 license       = "MIT"
 srcDir        = "src"
 
@@ -20,6 +20,8 @@ task docs, "Generate HTML documentation":
     "docs/metronome.idx",
     "docs/timezones.html",
     "docs/timezones.idx",
+    "docs/timers.html",
+    "docs/timers.idx",
     "docs/schedules.html",
     "docs/schedules.idx",
     "docs/theindex.html",
@@ -33,4 +35,5 @@ task docs, "Generate HTML documentation":
       rmDir(generatedDir)
   exec "nim doc --project --outDir:docs --threads:on --index:on src/metronome.nim"
   exec "nim doc --outDir:docs --threads:on --index:on src/metronome/timezones.nim"
+  exec "nim doc --outDir:docs --threads:on --index:on src/metronome/timers.nim"
   exec "nim buildIndex --out:docs/theindex.html docs"
