@@ -169,6 +169,38 @@ test "OnceBeater.fireTime":
   check beater.fireTime(none(DateTime), scheduled - initTimeInterval(hours=1)).get() == scheduled
   check beater.fireTime(some(scheduled), scheduled).isNone
 
+test "Custom Beater delegates to a strictly-future callback":
+  let callback: NextRunProc = proc(current: DateTime): Option[DateTime] {.
+      gcsafe, raises: []
+    .} =
+    some(current + initDuration(microseconds=500))
+  let current = dateTime(2026, mJan, 1, 0, 0, 0, 0, utc())
+  let beater = initBeater(callback, dummyAsync, startTime=some(current))
+  let next = beater.fireTime(none(DateTime), current).get()
+
+  check beater.kind == bkCustom
+  check next == current + initDuration(microseconds=500)
+  check $beater == "Beater(bkCustom)"
+
+test "Custom Beater rejects a nil callback":
+  let callback: NextRunProc = nil
+  expect ValueError:
+    discard initBeater(callback, dummyAsync)
+
+test "Custom Beater does not intentionally launch before a sub-millisecond deadline":
+  let target = now() + initDuration(microseconds=500)
+  let callback: NextRunProc = proc(current: DateTime): Option[DateTime] {.
+      gcsafe, raises: []
+    .} =
+    if current < target: some(target) else: none(DateTime)
+  var launched = target - initDuration(seconds=1)
+  let job: BeaterAsyncProc = proc(): Future[void] {.async.} =
+    launched = now()
+  let beater = initBeater(callback, job)
+
+  waitFor beater.fire()
+  check launched >= target
+
 test "Throttler rejects invalid limits":
   expect ValueError:
     discard initThrottler(0)

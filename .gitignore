@@ -4,6 +4,7 @@ tests/test_beater
 tests/test_cron
 tests/test_scheduler
 tests/test_timezones
+tests/test_timers
 NOTES.md
 coverage.info
 coverage_html/

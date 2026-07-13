@@ -20,6 +20,7 @@ echo "Compiling and running tests with coverage instrumentation..."
 "$nim" c "${coverage_flags[@]}" --nimcache:nimcache/scheduler -r tests/test_scheduler.nim
 "$nim" c "${coverage_flags[@]}" --nimcache:nimcache/beater -r tests/test_beater.nim
 "$nim" c "${coverage_flags[@]}" --nimcache:nimcache/timezones -r tests/test_timezones.nim
+"$nim" c "${coverage_flags[@]}" --nimcache:nimcache/timers -r tests/test_timers.nim
 
 echo "Capturing and filtering coverage..."
 lcov --ignore-errors inconsistent,unused,mismatch,missing,source,empty,gcov,range --filter range --capture --directory nimcache --output-file coverage.info

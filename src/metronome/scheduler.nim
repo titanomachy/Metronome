@@ -31,6 +31,13 @@ type
   ## It should be marked with pragma `{.thread.}`.
   ## It will be turned to BeaterAsyncProc in Metronome internally.
 
+  NextRunProc* = proc (current: DateTime): Option[DateTime] {.
+    closure, gcsafe, raises: []
+  .}
+  ## Calculates the first scheduled instant strictly later than current.
+  ## Optional scheduling modules can use this callback without coupling their
+  ## parser or data to the Metronome core.
+
 proc toAsync(p: BeaterThreadProc): BeaterAsyncProc =
   result =
     proc (): Future[void] {.gcsafe, closure, async.} =
@@ -82,6 +89,7 @@ type
   BeaterKind* {.pure.} = enum
     bkInterval
     bkCron
+    bkCustom
     bkOnce
 
   BeaterState* {.pure.} = enum
@@ -113,6 +121,8 @@ type
     of bkCron:
       cron*: Cron
       timezone*: Option[Timezone]
+    of bkCustom:
+      nextRunProc*: NextRunProc
     of bkOnce:
       discard
 
@@ -122,6 +132,8 @@ proc `$`*(beater: Beater): string =
     "Beater(" & $beater.kind & "," & $beater.interval & ")"
   of bkCron:
     "Beater(" & $beater.kind & "* * * * *" & ")"
+  of bkCustom:
+    "Beater(" & $beater.kind & ")"
   of bkOnce:
     "Beater(" & $beater.kind & "," & $beater.startTime & ")"
 
@@ -309,6 +321,64 @@ proc initBeater*(
   )
 
 proc initBeater*(
+  nextRunProc: NextRunProc,
+  asyncProc: BeaterAsyncProc,
+  startTime: Option[DateTime] = none(DateTime),
+  endTime: Option[DateTime] = none(DateTime),
+  id: string = "",
+  throttleNum: int = 1,
+  errorHandler: JobErrorHandler = nil,
+): Beater =
+  ## Initialize a custom-schedule Beater.
+  ##
+  ## The callback must return the first instant strictly later than its input.
+  ## startTime and endTime constrain the resulting schedule.
+  if nextRunProc.isNil:
+    raise newException(ValueError, "nextRunProc cannot be nil")
+  Beater(
+    id: id,
+    kind: bkCustom,
+    nextRunProc: nextRunProc,
+    beaterProc: asyncProc,
+    throttler: initThrottler(num=throttleNum),
+    state: bsRunning,
+    lastRunTime: none(DateTime),
+    nextRunTime: none(DateTime),
+    lastErrorRef: nil,
+    lastErrorTime: none(DateTime),
+    failureCount: 0,
+    errorHandler: errorHandler,
+    runningBeats: 0,
+    pauseGeneration: 0,
+    resumeTime: none(DateTime),
+    jitterRand: newJitterRand(),
+    startTime: if startTime.isSome: startTime.get() else: now(),
+    endTime: endTime,
+  )
+
+proc initBeater*(
+  nextRunProc: NextRunProc,
+  threadProc: BeaterThreadProc,
+  startTime: Option[DateTime] = none(DateTime),
+  endTime: Option[DateTime] = none(DateTime),
+  id: string = "",
+  throttleNum: int = 1,
+  errorHandler: JobErrorHandler = nil,
+): Beater =
+  ## Initialize a thread-backed custom-schedule Beater.
+  if errorHandler != nil:
+    raise newException(ValueError, "thread-backed beaters do not support error handlers")
+  initBeater(
+    nextRunProc = nextRunProc,
+    asyncProc = threadProc.toAsync,
+    startTime = startTime,
+    endTime = endTime,
+    id = id,
+    throttleNum = throttleNum,
+    errorHandler = errorHandler,
+  )
+
+proc initBeater*(
   cron: Cron,
   asyncProc: BeaterAsyncProc,
   startTime: Option[DateTime] = none(DateTime),
@@ -435,6 +505,11 @@ proc nominalFireTime(
         none(DateTime)
     else:
       self.cron.getNext(now)
+  of bkCustom:
+    if self.startTime > now:
+      self.nextRunProc(self.startTime - initDuration(nanoseconds=1))
+    else:
+      self.nextRunProc(now)
   of bkOnce:
     if prev.isNone:
       some(self.startTime)
@@ -461,7 +536,8 @@ proc fireTime*(
   ##   * Choose `prev + interval`.
   ##
   ## Cron beaters delegate to cron matching, optionally in their configured
-  ## timezone. One-shot beaters return their scheduled time only while `prev`
+  ## timezone. Custom beaters delegate to their strictly-future next-run
+  ## callback. One-shot beaters return their scheduled time only while `prev`
   ## is none.
   ##
   ## If `self.endTime` is set and the computed fire time is later than it,
@@ -482,11 +558,12 @@ proc waitUntil(
 ): Future[bool] {.async.} =
   while self.state notin {bsPaused, bsStopped} and
       self.pauseGeneration == pauseGeneration:
-    let sleepDuration = whenToRun - now()
-    let sleepMs = cast[int](sleepDuration.inMilliseconds)
-    if sleepMs <= 0:
+    let current = now()
+    if current >= whenToRun:
       return true
-    await sleepAsync(min(sleepMs, 100))
+    let remainingMs = (whenToRun - current).inMilliseconds
+    let sleepMs = if remainingMs <= 0: 1 else: min(remainingMs, 100)
+    await sleepAsync(int(sleepMs))
   result = false
 
 proc watch(self: Beater, fut: Future[void], errorHandler: JobErrorHandler) =
@@ -966,12 +1043,98 @@ proc processEvery(call: NimNode): NimNode=
           `procBody`
       )
 
+proc parseTimer(call: NimNode): tuple[
+  async: bool,
+  id: NimNode,
+  throttleNum: NimNode,
+  body: NimNode,
+  onCalendar: NimNode,
+  startTime: NimNode,
+  endTime: NimNode,
+  errorHandler: NimNode,
+] =
+  var async: bool = false
+  var id = newLit("")
+  var throttleNum = newLit(1)
+  var onCalendar = newEmptyNode()
+  var startTime = newCall(bindSym("none"), ident("DateTime"))
+  var endTime = newCall(bindSym("none"), ident("DateTime"))
+  var errorHandler = newNilLit()
+  let body = call[call.len-1]
+  body.expectKind nnkStmtList
+  for e in call[1 ..< call.len-1]:
+    e.expectKind nnkExprEqExpr
+    case e[0].`$`
+    of "async": async = e[1].`$` == "true"
+    of "id": id = e[1]
+    of "throttle": throttleNum = e[1]
+    of "onCalendar": onCalendar = e[1]
+    of "startTime": startTime = newCall(bindSym("some"), e[1])
+    of "endTime": endTime = newCall(bindSym("some"), e[1])
+    of "onError": errorHandler = e[1]
+    else: macros.error("unexpected parameter for `timer`: " & e[0].`$`, call)
+  if onCalendar.kind == nnkEmpty:
+    macros.error("missing required parameter for `timer`: onCalendar", call)
+  result = (
+    async: async,
+    id: id,
+    throttleNum: throttleNum,
+    body: body,
+    onCalendar: onCalendar,
+    startTime: startTime,
+    endTime: endTime,
+    errorHandler: errorHandler,
+  )
+
+proc processTimer(call: NimNode): NimNode =
+  let (asyncProc, id, throttleNum, procBody, onCalendar, startTime,
+    endTime, errorHandler) = parseTimer(call)
+  if asyncProc:
+    result = quote do:
+      block:
+        when not declared(newTimer) or not declared(initTimerBeater):
+          {.error: "timer(...) requires `import metronome/timers`".}
+          default(Beater)
+        else:
+          mixin newTimer, initTimerBeater
+          initTimerBeater(
+            id = `id`,
+            timer = newTimer(`onCalendar`),
+            throttleNum = `throttleNum`,
+            startTime = `startTime`,
+            endTime = `endTime`,
+            errorHandler = `errorHandler`,
+            asyncProc = proc() {.async.} =
+              `procBody`
+          )
+  else:
+    if errorHandler.kind != nnkNilLit:
+      macros.error("`onError` is only supported for async timer jobs", call)
+    result = quote do:
+      block:
+        when not declared(newTimer) or not declared(initTimerBeater):
+          {.error: "timer(...) requires `import metronome/timers`".}
+          default(Beater)
+        else:
+          mixin newTimer, initTimerBeater
+          initTimerBeater(
+            id = `id`,
+            timer = newTimer(`onCalendar`),
+            throttleNum = `throttleNum`,
+            startTime = `startTime`,
+            endTime = `endTime`,
+            errorHandler = `errorHandler`,
+            threadProc = proc() {.thread.} =
+              `procBody`
+          )
+
 proc processSchedule(call: NimNode): NimNode =
   call.expectKind nnkCall
   let cmdName = call[0].`$`
   case cmdName
   of "every": processEvery(call)
   of "cron": processCron(call)
+  of "timer": processTimer(call)
   of "at": processAt(call)
   else: raise newException(Exception, "unknown cmd: " & cmdName)
 
