@@ -461,6 +461,7 @@ running job futures for that scheduled job.
 
 Released:
 
+* v0.4.0, 11 Jul, 2026, Renamed library to Metronome, updated all references, documentation and examples
 * v0.3.1, 10 Jul, 2026, Add async job error handling, job lifecycle and introspection APIs, one-shot and timezone-aware scheduling, interval jitter, and expanded tests, CI, and documentation.
 * v0.3.0, 8 Jul, 2026, Upgrade to Nim 2.2.10, resolve warnings, fix weekday index/last bugs, expand tests, and add CI coverage.
 * v0.2.0, 22 Jul, 2021, New feature: cron.
