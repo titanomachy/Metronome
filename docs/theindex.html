@@ -28,7 +28,7 @@
     <label for="nav-toggle" id="nav-overlay"></label>
     <div class="container">
       <h1 class="title">Index</h1>
-      Modules: <a href="metronome.html">metronome</a>, <a href="metronome/cron/cron.html">metronome/cron/cron</a>, <a href="metronome/cron/expr.html">metronome/cron/expr</a>, <a href="metronome/cron/field.html">metronome/cron/field</a>, <a href="metronome/cron/parser.html">metronome/cron/parser</a>, <a href="metronome/scheduler.html">metronome/scheduler</a>.<br/><p /><h2>API symbols</h2>
+      Modules: <a href="metronome.html">metronome</a>, <a href="metronome/cron/cron.html">metronome/cron/cron</a>, <a href="metronome/cron/expr.html">metronome/cron/expr</a>, <a href="metronome/cron/field.html">metronome/cron/field</a>, <a href="metronome/cron/parser.html">metronome/cron/parser</a>, <a href="metronome/scheduler.html">metronome/scheduler</a>, <a href="timezones.html">timezones</a>.<br/><p /><h2>API symbols</h2>
 <dl><dt><a name="%60%24%60" href="#%60%24%60"><span>`$`:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
           data-doc-search-tag="expr: proc `$`(expr: Expr): string" href="metronome/cron/expr.html#%24%2CExpr">expr: proc `$`(expr: Expr): string</a></li>
@@ -329,6 +329,10 @@
 <li><a class="reference external"
           data-doc-search-tag="field: proc minValue(field: Field; dt: DateTime): int" href="metronome/cron/field.html#minValue%2CField%2CDateTime">field: proc minValue(field: Field; dt: DateTime): int</a></li>
           </ul></dd>
+<dt><a name="namedTimezone" href="#namedTimezone"><span>namedTimezone:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="timezones: proc namedTimezone(name: string): Timezone" href="timezones.html#namedTimezone%2Cstring">timezones: proc namedTimezone(name: string): Timezone</a></li>
+          </ul></dd>
 <dt><a name="newAllExpr" href="#newAllExpr"><span>newAllExpr:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
           data-doc-search-tag="expr: proc newAllExpr(): Expr" href="metronome/cron/expr.html#newAllExpr">expr: proc newAllExpr(): Expr</a></li>
@@ -487,6 +491,14 @@
 <li><a class="reference external"
           data-doc-search-tag="scheduler: type Throttler" href="metronome/scheduler.html#Throttler">scheduler: type Throttler</a></li>
           </ul></dd>
+<dt><a name="timezoneDatabaseVersion" href="#timezoneDatabaseVersion"><span>timezoneDatabaseVersion:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="timezones: proc timezoneDatabaseVersion(): string" href="timezones.html#timezoneDatabaseVersion">timezones: proc timezoneDatabaseVersion(): string</a></li>
+          </ul></dd>
+<dt><a name="timezoneNames" href="#timezoneNames"><span>timezoneNames:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="timezones: proc timezoneNames(): seq[string]" href="timezones.html#timezoneNames">timezones: proc timezoneNames(): seq[string]</a></li>
+          </ul></dd>
 <dt><a name="waitFor" href="#waitFor"><span>waitFor:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
           data-doc-search-tag="scheduler: proc waitFor(self: Scheduler)" href="metronome/scheduler.html#waitFor%2CScheduler">scheduler: proc waitFor(self: Scheduler)</a></li>
@@ -495,7 +507,7 @@
       <div class="twelve-columns footer">
         <span class="nim-sprite"></span>
         <br>
-        <small style="color: var(--hint);">Made with Nim. Generated: 2026-07-13 02:31:38 UTC</small>
+        <small style="color: var(--hint);">Made with Nim. Generated: 2026-07-13 15:50:32 UTC</small>
       </div>
     </div>
   </div>

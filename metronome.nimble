@@ -18,6 +18,8 @@ task docs, "Generate HTML documentation":
   for generatedFile in [
     "docs/metronome.html",
     "docs/metronome.idx",
+    "docs/timezones.html",
+    "docs/timezones.idx",
     "docs/schedules.html",
     "docs/schedules.idx",
     "docs/theindex.html",
@@ -30,3 +32,5 @@ task docs, "Generate HTML documentation":
     if dirExists(generatedDir):
       rmDir(generatedDir)
   exec "nim doc --project --outDir:docs --threads:on --index:on src/metronome.nim"
+  exec "nim doc --outDir:docs --threads:on --index:on src/metronome/timezones.nim"
+  exec "nim buildIndex --out:docs/theindex.html docs"

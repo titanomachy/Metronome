@@ -57,6 +57,7 @@
   <li><a class="reference" id="metronome_toc" href="#metronome">Metronome</a></li>
 <ul class="simple"><li><a class="reference" id="metronome-schedule-by-every_toc" href="#metronome-schedule-by-every">Schedule By Every</a></li>
 <li><a class="reference" id="metronome-schedule-by-cron_toc" href="#metronome-schedule-by-cron">Schedule By Cron</a></li>
+<li><a class="reference" id="metronome-named-iana-timezones_toc" href="#metronome-named-iana-timezones">Named IANA Timezones</a></li>
 <li><a class="reference" id="metronome-schedule-once_toc" href="#metronome-schedule-once">Schedule Once</a></li>
 <li><a class="reference" id="metronome-throttling_toc" href="#metronome-throttling">Throttling</a></li>
 <li><a class="reference" id="metronome-customize-scheduler_toc" href="#metronome-customize-scheduler">Customize Scheduler</a></li>
@@ -129,6 +130,17 @@ metronome:
 </ul>
 <p>Run::</p>
 <pre>nim c --threads:on -r examples/example_cron_scheduler.nim</pre>
+
+<h2><a class="toc-backref" id="metronome-named-iana-timezones" href="#metronome-named-iana-timezones">Named IANA Timezones</a></h2><p>Import <tt class="docutils literal"><span class="pre">metronome/timezones</span></tt> separately to resolve an embedded IANA name. The optional database is not included when an application imports only <tt class="docutils literal"><span class="pre">metronome</span></tt>::</p>
+<pre>import metronome, metronome/timezones
+import asyncdispatch, times
+
+let zone = namedTimezone(&quot;Europe/Amsterdam&quot;)
+
+scheduler localSched:
+  cron(hour=&quot;9&quot;, minute=&quot;0&quot;, timezone=zone, async=true):
+    echo now().inZone(zone)</pre>
+<p>Cron fields stay at the requested local wall-clock hour across DST changes. See the generated <tt class="docutils literal"><span class="pre">metronome/timezones</span></tt> module documentation for database version reporting, supported-name lookup, and local-time edge-case behavior.</p>
 <p>Note:</p>
 <ul class="simple"><li>Compile applications with --threads:on.</li>
 <li>The library schedules all jobs at a regular interval, but it'll be impacted by your system load.</li>
@@ -289,7 +301,7 @@ sched.stopAll()</pre>
       <div class="twelve-columns footer">
         <span class="nim-sprite"></span>
         <br>
-        <small style="color: var(--hint);">Made with Nim. Generated: 2026-07-13 02:31:38 UTC</small>
+        <small style="color: var(--hint);">Made with Nim. Generated: 2026-07-13 15:50:31 UTC</small>
       </div>
     </div>
   </div>

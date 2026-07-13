@@ -79,6 +79,25 @@
 ##
 ##     nim c --threads:on -r examples/example_cron_scheduler.nim
 ##
+## ## Named IANA Timezones
+##
+## Import ``metronome/timezones`` separately to resolve an embedded IANA name.
+## The optional database is not included when an application imports only
+## ``metronome``::
+##
+##     import metronome, metronome/timezones
+##     import asyncdispatch, times
+##
+##     let zone = namedTimezone("Europe/Amsterdam")
+##
+##     scheduler localSched:
+##       cron(hour="9", minute="0", timezone=zone, async=true):
+##         echo now().inZone(zone)
+##
+## Cron fields stay at the requested local wall-clock hour across DST changes.
+## See the generated ``metronome/timezones`` module documentation for database
+## version reporting, supported-name lookup, and local-time edge-case behavior.
+##
 ## Note:
 ##
 ## * Compile applications with --threads:on.

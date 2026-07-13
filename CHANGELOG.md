@@ -1,5 +1,19 @@
 # Metronome Release Notes
 
+## Unreleased
+
+### Named IANA timezone support
+
+- Added the optional `metronome/timezones` module with `namedTimezone`,
+  `timezoneDatabaseVersion`, and `timezoneNames`.
+- Embedded the pinned IANA `2026c` database, including canonical names,
+  aliases, historical transitions, DST metadata, and recurring future rules.
+- Added a deterministic updater that pins and checksums matching `tzdata` and
+  `tzcode` releases and builds the pinned `zic` instead of using the host's
+  timezone compiler.
+- Documented and tested timezone conversion, DST gaps and overlaps, dates
+  after 2037, timezone-aware cron schedules, and Amsterdam/Chicago usage.
+
 ## v0.4.0 - 2026-07-11
 
 ### Breaking package and API rename

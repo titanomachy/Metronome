@@ -16,7 +16,7 @@ Features:
 * Simple to use API for scheduling jobs.
 * Support scheduling both async and sync procs.
 * Interval, cron, and one-shot scheduling.
-* Timezone-aware cron schedules.
+* Timezone-aware cron schedules, including optional embedded IANA names.
 * Job-level and scheduler-level async error handling.
 * Pause, resume, stop, and inspect registered jobs by id.
 * Optional interval jitter to spread out job launches.
@@ -134,7 +134,7 @@ Direct `newCron` calls expose a `second` argument for API compatibility, but
 the current next-run calculation is minute-based and does not evaluate it.
 
 Cron schedules can also be evaluated in a specific Nim `Timezone` by passing
-`timezone=`.
+`timezone=`. UTC needs no additional module:
 
 ```nim
 import metronome, times, asyncdispatch, options
@@ -145,6 +145,43 @@ metronome:
 ```
 
 Direct `initBeater` calls accept `timezone=some(myTimezone)`.
+
+For a named IANA zone, import the optional `metronome/timezones` module and
+resolve the name once when constructing the scheduler:
+
+```nim
+import metronome, metronome/timezones
+import asyncdispatch, times
+
+# Change this one value to "America/Chicago" to move the schedule.
+let zone = namedTimezone("Europe/Amsterdam")
+
+scheduler localSched:
+  cron(hour="9", minute="0", id="local-daily", async=true, timezone=zone):
+    echo("09:00 local: ", now().inZone(zone))
+```
+
+Cron fields remain local wall-clock values. A 09:00 Amsterdam job therefore
+runs at 08:00 UTC in winter and 07:00 UTC in summer. The embedded data is
+cross-platform and does not read system zoneinfo files or perform runtime
+downloads. Importing only `metronome` does not include or initialize it.
+The `2026c` catalog is 411,023 bytes. In an illustrative stripped Linux x86-64
+Nim 2.2.10 build, adding `metronome/timezones` increased a minimal executable
+from 77,304 to 528,120 bytes; exact overhead depends on the target and compiler
+settings.
+
+Names are exact and case-sensitive. Canonical names and IANA aliases are
+accepted, including `Etc/UTC` and `UTC`; `LOCAL`, numeric offsets, filesystem
+paths, and unknown abbreviations are rejected. During a spring-forward gap, a
+nonexistent local time is normalized forward. During a fall-back overlap, the
+earlier occurrence is selected.
+
+Use `timezoneDatabaseVersion()` to report the bundled IANA release and
+`timezoneNames()` to list supported names. Database updates are application
+updates: governments can change future rules, so applications should update
+Metronome when a newer database is released. The generated API documentation
+for this optional module is in
+[`metronome/timezones`](https://titanomachy.github.io/Metronome/timezones.html).
 
 See [example_cron_scheduler.nim](examples/example_cron_scheduler.nim) for
 lists, `#`, and `L`, and
@@ -498,7 +535,25 @@ To generate the HTML documentation locally:
 nimble docs
 ```
 
-This compiles all docstrings in the codebase and outputs the generated files directly into the `docs/` folder. You can open `docs/metronome.html` in your browser to read the generated docs.
+This compiles the root scheduler documentation and the optional named-timezone
+module, then outputs the generated files directly into the `docs/` folder. You
+can open `docs/metronome.html` for the scheduler API or
+`docs/timezones.html` for named IANA timezone support.
+
+### Updating the embedded timezone database
+
+The maintainer-only updater pins and verifies matching IANA `tzdata` and
+`tzcode` releases. It builds that release's `zic`; it never silently uses the
+host's installed `zic`.
+
+```bash
+nim r tools/update_timezones.nim -- 2026c
+nim r tools/update_timezones.nim -- 2026c --check
+```
+
+The updater requires `curl`, `sha256sum`, `tar`, `make`, and a C99 compiler.
+Applications do not need these tools. Updating the pin requires reviewing and
+changing both committed SHA-256 checksums in the updater.
 
 ## License
 

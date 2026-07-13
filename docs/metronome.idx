@@ -2,6 +2,7 @@ nimTitle	metronome	metronome.html	module src/metronome		0
 heading	Metronome	metronome.html#metronome	 Metronome		0
 heading	Schedule By Every	metronome.html#metronome-schedule-by-every	  Schedule By Every		0
 heading	Schedule By Cron	metronome.html#metronome-schedule-by-cron	  Schedule By Cron		0
+heading	Named IANA Timezones	metronome.html#metronome-named-iana-timezones	  Named IANA Timezones		0
 heading	Schedule Once	metronome.html#metronome-schedule-once	  Schedule Once		0
 heading	Throttling	metronome.html#metronome-throttling	  Throttling		0
 heading	Customize Scheduler	metronome.html#metronome-customize-scheduler	  Customize Scheduler		0
