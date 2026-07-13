@@ -7,8 +7,6 @@
 [![CI](https://github.com/titanomachy/Metronome/actions/workflows/ci.yml/badge.svg)](https://github.com/titanomachy/Metronome/actions/workflows/ci.yml)
 [![Coverage](docs/coverage.svg)](https://github.com/titanomachy/Metronome/actions)
 
-[@soasme](https://github.com/soasme) originally created the base of this library. You can find it [here](https://github.com/soasme/nim-schedules).
-
 A Nim scheduler library for interval, cron, and one-shot jobs.
 
 Read the [documentation](https://titanomachy.github.io/Metronome/metronome.html).
@@ -505,3 +503,10 @@ This compiles all docstrings in the codebase and outputs the generated files dir
 ## License
 
 Metronome is licensed under the MIT License.
+
+## Attributions
+
+* [@soasme](https://github.com/soasme) originally created the scheduler base of this library ([nim-schedules](https://github.com/soasme/nim-schedules)).
+* [@GULPF](https://github.com/GULPF) originally created the timezones base of this library ([timezones](https://github.com/GULPF/timezones)).
+
+Portions of both libraries were adapted under the MIT License.
