@@ -23,6 +23,58 @@ Features:
 * Optional interval jitter to spread out job launches.
 * Zero-dependency code
 
+## How Metronome Fits Together
+
+Each schedule creates a beater that owns one job's timing and state. A
+scheduler manages those beaters, applies lifecycle controls, and dispatches
+due jobs through either the async event loop or a worker thread.
+
+```mermaid
+flowchart TB
+  DSL["`**Metronome scheduler DSL**
+  or direct constructors`"]
+
+  subgraph INTERFACES["Scheduling interfaces"]
+    EVERY["`**Interval scheduling**
+    Fixed intervals
+    Optional jitter`"]
+    CRON["`**Cron scheduling**
+    Minute resolution
+    IANA timezones`"]
+    TIMER["`**Systemd-style calendar**
+    IANA timezones
+    Microsecond targets`"]
+    AT["`**One-shot scheduling**`"]
+  end
+
+  DSL --> EVERY
+  DSL --> CRON
+  DSL --> TIMER
+  DSL --> AT
+
+  EVERY --> BEATER
+  CRON --> BEATER
+  TIMER --> BEATER
+  AT --> BEATER
+
+  BEATER["`**Beater: one job**
+  Deadline, ID, and throttle
+  Bounds and state`"]
+  BEATER -->|Registered with| SCHEDULER["`**Scheduler**
+  Owns beaters and dispatches jobs
+  Manage: pause, resume, and stop
+  Query: state, runs, and failures`"]
+
+  SCHEDULER --> GATE["`**Dispatch gate**
+  Deadline and bounds
+  Throttle limit`"]
+  GATE --> ASYNC["Run on the async event loop"]
+  GATE --> THREAD["Run in a worker thread (default)"]
+
+  classDef compact font-size:12px;
+  class EVERY,CRON,TIMER,AT,BEATER,SCHEDULER,GATE compact;
+```
+
 ## Getting Started
 
 ```bash
