@@ -15,7 +15,7 @@ Features:
 
 * Simple to use API for scheduling jobs.
 * Support scheduling both async and sync procs.
-* Interval, cron, timer, and one-shot scheduling.
+* Interval, cron, systemd-style timers, and one-shot scheduling.
 * Timezone-aware cron and systemd-style calendar schedules, including optional
   embedded IANA names.
 * Job-level and scheduler-level async error handling.
@@ -40,10 +40,10 @@ flowchart TB
     Optional jitter`"]
     CRON["`**Cron scheduling**
     Minute resolution
-    IANA timezones`"]
+    Optional IANA timezones`"]
     TIMER["`**Systemd-style calendar**
-    IANA timezones
-    Microsecond targets`"]
+    Microsecond targets
+    Optional IANA timezones`"]
     AT["`**One-shot scheduling**`"]
   end
 
@@ -77,22 +77,44 @@ flowchart TB
 
 ## Contents
 
-- [Getting Started](#getting-started)
-- [Usage](#usage)
-- [Advanced Usage](#advanced-usage)
-  - [Cron](#cron)
-  - [Schedule by Timer](#schedule-by-timer)
-  - [One-Shot Jobs](#one-shot-jobs)
-  - [Runnable Examples](#runnable-examples)
-  - [Job Controls](#job-controls)
-  - [Job Introspection](#job-introspection)
-- [Development](#development)
-- [Changelog](#changelog)
+- [Metronome](#metronome)
+  - [How Metronome Fits Together](#how-metronome-fits-together)
+  - [Contents](#contents)
+  - [Getting Started](#getting-started)
+  - [Usage](#usage)
+    - [Thread Requirements](#thread-requirements)
+  - [Advanced Usage](#advanced-usage)
+    - [Cron](#cron)
+      - [Cron Syntax](#cron-syntax)
+    - [Schedule by Timer](#schedule-by-timer)
+    - [One-Shot Jobs](#one-shot-jobs)
+    - [Throttling](#throttling)
+    - [Customize Scheduler](#customize-scheduler)
+    - [Set Start Time and End Time](#set-start-time-and-end-time)
+    - [Runnable Examples](#runnable-examples)
+    - [Calculate Next Run Times](#calculate-next-run-times)
+    - [Error Handling](#error-handling)
+    - [Interval Jitter](#interval-jitter)
+    - [Job Controls](#job-controls)
+    - [Job Introspection](#job-introspection)
+  - [ChangeLog](#changelog)
+  - [Development](#development)
+    - [Running Tests](#running-tests)
+    - [Code Coverage](#code-coverage)
+    - [Documentation](#documentation)
+    - [Updating the embedded timezone database](#updating-the-embedded-timezone-database)
+  - [License](#license)
+  - [Attributions](#attributions)
 
 ## Getting Started
 
 ```bash
 nimble update
+nimble install metronome
+```
+
+If a feature is not yet in a release you can try to install from the latest commit.
+```bash
 nimble install metronome@#head
 ```
 
