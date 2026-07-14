@@ -78,9 +78,8 @@ flowchart TB
 ## Getting Started
 
 ```bash
-nimble install https://github.com/titanomachy/Metronome
-
-# (not yet) nimble install metronome
+nimble update
+nimble install metronome@#head
 ```
 
 ## Usage
