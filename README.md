@@ -72,7 +72,7 @@ flowchart TB
   GATE --> THREAD["Run in a worker thread (default)"]
 
   classDef compact font-size:12px;
-  class EVERY,CRON,TIMER,AT,BEATER,SCHEDULER,GATE compact;
+  class EVERY,CRON,TIMER,AT,BEATER,SCHEDULER,GATE,ASYNC,THREAD compact;
 ```
 
 ## Getting Started
@@ -264,6 +264,12 @@ scheduler timerSched:
   ):
     echo "Running nightly"
 ```
+
+`metronome/timers` already includes the embedded timezone resolver used by
+`OnCalendar` suffixes, so this example does not need a separate
+`metronome/timezones` import. Import that module explicitly only when calling
+its public APIs, such as `namedTimezone`, `timezoneNames`, or
+`timezoneDatabaseVersion`, from application code.
 
 The optional weekday prefix, `*`, comma-separated lists, `..` ranges, `/`
 repetitions, `~` last-day forms, and the standard `minutely` through
