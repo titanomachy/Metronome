@@ -7,7 +7,7 @@ on:
     branches: [ master ]
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   test:
@@ -36,21 +36,55 @@ jobs:
       run: |
         export PATH=$HOME/.nimble/bin:$PATH
         nimble docs
-        touch docs/.nojekyll
 
     - name: Run Tests and Generate Coverage
       run: |
         export PATH=$HOME/.nimble/bin:$PATH
         nimble coverage
 
-    - name: Verify Coverage Badge Is Current
-      run: git diff --exit-code -- docs/coverage.svg
-
-    - name: Commit Badge and Documentation
-      if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    - name: Enforce Minimum Coverage
       run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        git add docs/
-        git diff-index --quiet HEAD || git commit -m "Update docs and coverage badge [skip ci]" -a
-        git push
+        awk -F: -v minimum=80 '
+          /^LH:/ { covered += $2 }
+          /^LF:/ { total += $2 }
+          END {
+            if (total == 0) {
+              print "No coverage data found"
+              exit 2
+            }
+
+            percent = covered * 100 / total
+            printf "Line coverage: %.1f%%\n", percent
+
+            if (percent < minimum) {
+              printf "Coverage is below %.1f%%\n", minimum
+              exit 1
+            }
+          }
+        ' coverage.info
+
+    - name: Configure GitHub Pages
+      if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+      uses: actions/configure-pages@v5
+
+    - name: Upload GitHub Pages Artifact
+      if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+      uses: actions/upload-pages-artifact@v4
+      with:
+        path: docs
+
+  deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+    - name: Deploy GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v4

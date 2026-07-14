@@ -1,5 +1,5 @@
 nimcache/
-docs/_build/
+docs/
 tests/test_beater
 tests/test_cron
 tests/test_scheduler

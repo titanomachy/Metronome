@@ -5,7 +5,7 @@
 > Its public API may change without compatibility guarantees.
 
 [![CI](https://github.com/titanomachy/Metronome/actions/workflows/ci.yml/badge.svg)](https://github.com/titanomachy/Metronome/actions/workflows/ci.yml)
-[![Coverage](docs/coverage.svg)](https://github.com/titanomachy/Metronome/actions)
+[![Coverage](https://titanomachy.github.io/Metronome/coverage.svg)](https://github.com/titanomachy/Metronome/actions)
 
 A Nim scheduler library for interval, cron, timer, and one-shot jobs.
 
@@ -384,10 +384,13 @@ The examples are the runnable counterparts to the snippets in this guide:
   and async interval and cron jobs.
 * [example_cron_scheduler.nim](examples/example_cron_scheduler.nim) covers
   lists and the weekday `#` and `L` forms.
-* [example_cron_timezone.nim](examples/example_cron_timezone.nim),
-  [example_timer_scheduler.nim](examples/example_timer_scheduler.nim),
-  [example_firetime_calculations.nim](examples/example_firetime_calculations.nim),
-  and [example_one_shot.nim](examples/example_one_shot.nim) cover the matching
+* [example_cron_timezone.nim](examples/example_cron_timezone.nim) demonstrates
+  cron scheduling with named IANA timezones.
+* [example_timer_scheduler.nim](examples/example_timer_scheduler.nim)
+  demonstrates Systemd-style `OnCalendar` timers with named timezones and
+  microsecond calendar targets.
+* [example_firetime_calculations.nim](examples/example_firetime_calculations.nim)
+  and [example_one_shot.nim](examples/example_one_shot.nim) cover their matching
   sections above.
 * [example_prologue.nim](examples/example_prologue.nim) shows async integration
   with Prologue and a file logger, and requires Prologue in addition to
@@ -579,8 +582,8 @@ nimble coverage
 
 The task runs all instrumented tests, captures and filters project coverage,
 generates `coverage_html/index.html`, and updates `docs/coverage.svg`. CI invokes
-the same task and fails when the committed badge does not match the generated
-coverage result.
+the same task, requires at least 80% line coverage, and publishes the generated
+badge with the documentation. Generated coverage files are not committed.
 
 ### Documentation
 
@@ -592,9 +595,11 @@ nimble docs
 
 This compiles the root scheduler documentation and the optional named-timezone
 and calendar-timer modules, then outputs the generated files directly into the
-`docs/` folder. You can open `docs/metronome.html` for the scheduler API,
+ignored `docs/` folder. You can open `docs/metronome.html` for the scheduler API,
 `docs/timezones.html` for named IANA timezone support, or `docs/timers.html`
-for systemd-style calendar timers.
+for systemd-style calendar timers. On pushes to `master`, CI deploys this folder
+to GitHub Pages as an artifact instead of committing generated files to the
+repository.
 
 ### Updating the embedded timezone database
 

@@ -1,5 +1,0 @@
-nimTitle	timezones	timezones.html	module src/metronome/timezones		0
-nim	namedTimezone	timezones.html#namedTimezone,string	proc namedTimezone(name: string): Timezone		37
-nim	timezoneDatabaseVersion	timezones.html#timezoneDatabaseVersion	proc timezoneDatabaseVersion(): string		52
-nim	timezoneNames	timezones.html#timezoneNames	proc timezoneNames(): seq[string]		56
-heading	Named IANA timezones	timezones.html#named-iana-timezones	 Named IANA timezones		0
