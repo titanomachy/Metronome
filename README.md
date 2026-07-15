@@ -7,7 +7,7 @@
 [![CI](https://github.com/titanomachy/Metronome/actions/workflows/ci.yml/badge.svg)](https://github.com/titanomachy/Metronome/actions/workflows/ci.yml)
 [![Coverage](https://titanomachy.github.io/Metronome/coverage.svg)](https://github.com/titanomachy/Metronome/actions)
 
-A Nim scheduler library for interval, cron, timer, and one-shot jobs.
+Metronome is a Nim library for time-based job scheduling supporting cron jobs, systemd-style timers, interval-based timers, and one-shot tasks.
 
 Read the [documentation](https://titanomachy.github.io/Metronome/metronome.html).
 
@@ -16,8 +16,7 @@ Features:
 * Simple to use API for scheduling jobs.
 * Support scheduling both async and sync procs.
 * Interval, cron, systemd-style timers, and one-shot scheduling.
-* Timezone-aware cron and systemd-style calendar schedules, including optional
-  embedded IANA names.
+* Timezone-aware cron and systemd-style calendar schedules, including optional embedded IANA names.
 * Job-level and scheduler-level async error handling.
 * Pause, resume, stop, and inspect registered jobs by id.
 * Optional interval jitter to spread out job launches.
