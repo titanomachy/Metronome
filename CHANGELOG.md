@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.4.3 - 2026-07-16
+
 ### Systemd-style calendar timers
 
 - Added the optional `metronome/timers` module with systemd-style
@@ -27,6 +29,29 @@
   timezone compiler.
 - Documented and tested timezone conversion, DST gaps and overlaps, dates
   after 2037, timezone-aware cron schedules, and Amsterdam/Chicago usage.
+
+### Documentation and maintenance
+
+- Moved generated API documentation and coverage artifacts out of the
+  repository; CI now builds and deploys them to GitHub Pages.
+- Expanded the README with an architecture overview, navigation, timer and
+  timezone guidance, and clearer development documentation.
+- Refactored the calendar timer implementation into focused model, parser,
+  and evaluator modules, with regression coverage for overflow and DST-gap
+  advancement.
+- Updated project attributions and the Prologue integration example.
+
+## v0.4.2 - 2026-07-12
+
+- Updated the Nimble package version to `0.4.2` and regenerated its API
+  documentation.
+
+## v0.4.1 - 2026-07-12
+
+- Removed the unnecessary `gcsafe` constraint from async jobs running on the
+  event-loop thread, allowing them to access GC-managed state.
+- Added regression coverage for async scheduler jobs using global GC-managed
+  state and clarified the execution model in the README.
 
 ## v0.4.0 - 2026-07-11
 

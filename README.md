@@ -96,7 +96,7 @@ flowchart TB
     - [Interval Jitter](#interval-jitter)
     - [Job Controls](#job-controls)
     - [Job Introspection](#job-introspection)
-  - [ChangeLog](#changelog)
+  - [Changelog](#changelog)
   - [Development](#development)
     - [Running Tests](#running-tests)
     - [Code Coverage](#code-coverage)
@@ -642,10 +642,11 @@ returns the most recent exception or `nil`; `lastErrorAt(id)` and `failures(id)`
 report when and how often the job failed. `runningCount(id)` reports currently
 running job futures for that scheduled job.
 
-## ChangeLog
+## Changelog
 
 Released:
 
+* v0.4.3, 16 Jul, 2026, Add systemd-style calendar timers, embedded IANA timezone support, and CI-generated documentation.
 * v0.4.0, 11 Jul, 2026, Renamed library to Metronome, updated all references, documentation and examples
 * v0.3.1, 10 Jul, 2026, Add async job error handling, job lifecycle and introspection APIs, one-shot and timezone-aware scheduling, interval jitter, and expanded tests, CI, and documentation.
 * v0.3.0, 8 Jul, 2026, Upgrade to Nim 2.2.10, resolve warnings, fix weekday index/last bugs, expand tests, and add CI coverage.
