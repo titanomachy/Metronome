@@ -9,6 +9,8 @@
 
 Metronome is a Nim library for time-based job scheduling supporting cron jobs, systemd-style timers, interval-based timers, and one-shot tasks.
 
+See [Metronome Web](https://github.com/titanomachy/Metronome-Web) for an example application build with Metronome.
+
 Read the [documentation](https://titanomachy.github.io/Metronome/metronome.html).
 
 Features:
