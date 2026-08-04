@@ -1,8 +1,9 @@
 # Metronome
 
 > [!WARNING]
-> **Alpha software:** Metronome is a pre-1.0 package under active development.
-> Its public API may change without compatibility guarantees.
+> Beta Notice: Metronome is a pre-1.0 package under active development.
+> While it is fully functional today, future releases may introduce breaking changes,
+> and the public API offers no backward compatibility guarantees.
 
 [![CI](https://github.com/titanomachy/Metronome/actions/workflows/ci.yml/badge.svg)](https://github.com/titanomachy/Metronome/actions/workflows/ci.yml)
 [![Coverage](https://titanomachy.github.io/Metronome/coverage.svg)](https://github.com/titanomachy/Metronome/actions)
