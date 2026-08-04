@@ -1,5 +1,7 @@
 # Metronome Release Notes
 
+## Unreleased
+
 ## v0.5.0 - 2026-08-05
 
 ### Documentation and release maintenance
