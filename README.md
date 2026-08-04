@@ -1,7 +1,7 @@
 # Metronome
 
 > [!WARNING]
-> Beta Notice: Metronome is a pre-1.0 package under active development.
+> **Beta Notice:** Metronome is a pre-1.0 package under active development.
 > While it is fully functional today, future releases may introduce breaking changes,
 > and the public API offers no backward compatibility guarantees.
 
@@ -115,9 +115,9 @@ nimble update
 nimble install metronome
 ```
 
-If a feature is not yet in a release you can try to install from the latest commit.
+If a feature is not yet in a release, you can try the active development branch.
 ```bash
-nimble install metronome@#head
+nimble install metronome@#development
 ```
 
 ## Usage
@@ -649,6 +649,7 @@ running job futures for that scheduled job.
 
 Released:
 
+* v0.5.0, 5 Aug, 2026, Marked the project as beta and added development and release version safeguards to CI.
 * v0.4.3, 16 Jul, 2026, Add systemd-style calendar timers, embedded IANA timezone support, and CI-generated documentation.
 * v0.4.0, 11 Jul, 2026, Renamed library to Metronome, updated all references, documentation and examples
 * v0.3.1, 10 Jul, 2026, Add async job error handling, job lifecycle and introspection APIs, one-shot and timezone-aware scheduling, interval jitter, and expanded tests, CI, and documentation.
@@ -659,6 +660,12 @@ Released:
 * v0.1.0, initial release.
 
 ## Development
+
+Day-to-day changes target `development`; `master` tracks released versions.
+Immediately after each release, the package version on `development` is bumped
+to the next planned version so an unreleased checkout cannot identify itself as
+the previous release. CI tests pushes and pull requests for both branches and
+validates their release/version rules.
 
 ### Running Tests
 

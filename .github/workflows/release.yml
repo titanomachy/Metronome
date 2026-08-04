@@ -6,11 +6,73 @@ on:
       - 'v*' # Trigger when tags matching v0.3.0, v1.0.0, etc. are pushed
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  release:
+  validate:
+    name: Validate release tag and installed package
     runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v7
+      with:
+        fetch-depth: 0
+
+    - name: Require the tag and package version to match
+      shell: bash
+      run: |
+        package_version=$(awk -F\" '/^[[:space:]]*version[[:space:]]*=/ { print $2; exit }' metronome.nimble)
+        tag_version=${GITHUB_REF_NAME#v}
+
+        if [[ ! "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "Release tag must use the vMAJOR.MINOR.PATCH format: $GITHUB_REF_NAME"
+          exit 1
+        fi
+
+        if [[ "$tag_version" != "$package_version" ]]; then
+          echo "Tag $GITHUB_REF_NAME does not match package version $package_version"
+          exit 1
+        fi
+
+        echo "Tag $GITHUB_REF_NAME matches package version $package_version"
+
+    - name: Install Nim
+      run: |
+        export CHOOSENIM_CHOOSE_VERSION="2.2.10"
+        curl https://nim-lang.org/choosenim/init.sh -sSf > init.sh
+        sh init.sh -y
+
+    - name: Check and test the tagged source
+      run: |
+        export PATH=$HOME/.nimble/bin:$PATH
+        nimble check
+        nimble test
+
+    - name: Install and smoke-test every public module
+      shell: bash
+      run: |
+        export PATH=$HOME/.nimble/bin:$PATH
+        nimble install -y
+
+        smoke_dir=$(mktemp -d)
+        trap 'rm -rf "$smoke_dir"' EXIT
+        cat > "$smoke_dir/smoke.nim" <<'EOF'
+        import metronome
+        import metronome/timers
+        import metronome/timezones
+
+        doAssert timezoneDatabaseVersion() == "2026c"
+        EOF
+
+        installed_path=$(nimble path metronome)
+        cd "$smoke_dir"
+        nim c --threads:on --noNimblePath --path:"$installed_path" smoke.nim
+
+  release:
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
     - uses: actions/checkout@v7
