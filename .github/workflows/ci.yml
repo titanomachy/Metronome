@@ -2,14 +2,50 @@ name: CI
 
 on:
   push:
-    branches: [ master ]
+    branches: [ master, development ]
   pull_request:
-    branches: [ master ]
+    branches: [ master, development ]
 
 permissions:
   contents: read
 
 jobs:
+  version:
+    name: Validate development version
+    if: github.ref == 'refs/heads/development' || github.base_ref == 'development'
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v7
+      with:
+        fetch-depth: 0
+
+    - name: Require a version newer than the latest release
+      shell: bash
+      run: |
+        package_version=$(awk -F\" '/^[[:space:]]*version[[:space:]]*=/ { print $2; exit }' metronome.nimble)
+        latest_tag=$(git tag --list 'v[0-9]*' --sort=-version:refname | head -n 1)
+
+        if [[ -z "$package_version" ]]; then
+          echo "Could not read the package version from metronome.nimble"
+          exit 1
+        fi
+
+        if [[ -z "$latest_tag" ]]; then
+          echo "No release tag found; skipping the development version comparison"
+          exit 0
+        fi
+
+        released_version=${latest_tag#v}
+        newest_version=$(printf '%s\n' "$released_version" "$package_version" | sort -V | tail -n 1)
+
+        if [[ "$package_version" == "$released_version" || "$newest_version" != "$package_version" ]]; then
+          echo "Development version $package_version must be newer than latest release $released_version"
+          exit 1
+        fi
+
+        echo "Development version $package_version is newer than latest release $released_version"
+
   test:
     runs-on: ubuntu-latest
 

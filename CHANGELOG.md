@@ -1,6 +1,18 @@
 # Metronome Release Notes
 
-## Unreleased
+## v0.5.0 - 2026-08-05
+
+### Documentation and release maintenance
+
+- Marked Metronome as beta software and added Metronome-Web as a reference
+  application.
+- Added CI coverage for both `master` and `development`, including a guard
+  that requires development versions to be newer than the latest release.
+- Added release-tag validation that requires the tag and Nimble package
+  versions to match, then tests a clean installation of every public module
+  before publishing the GitHub release.
+- Fixed the root compiler configuration so the documented local example
+  commands resolve the package source without additional path flags.
 
 ## v0.4.3 - 2026-07-16
 
