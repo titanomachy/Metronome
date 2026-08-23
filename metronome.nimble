@@ -1,6 +1,6 @@
 # Package
 
-version       = "0.5.1"
+version       = "0.5.2"
 author        = "titanomachy"
 description   = "Metronome is a library for time-based job scheduling supporting cron jobs, systemd-style timers, interval-based timers, and one-shot tasks."
 license       = "MIT"
