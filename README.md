@@ -704,7 +704,7 @@ running job futures for that scheduled job.
 ## Changelog
 
 Released:
-
+* v0.5.1, 23 Aug, 2026, Clarify scheduler architecture, add section about scheduler and direct constructors.
 * v0.5.0, 5 Aug, 2026, Marked the project as beta and added development and release version safeguards to CI.
 * v0.4.3, 16 Jul, 2026, Add systemd-style calendar timers, embedded IANA timezone support, and CI-generated documentation.
 * v0.4.0, 11 Jul, 2026, Renamed library to Metronome, updated all references, documentation and examples
