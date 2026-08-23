@@ -1,6 +1,12 @@
 # Metronome Release Notes
 
-## Unreleased
+## v0.5.1 - 2026-08-23
+
+### Documentation
+
+- Clarified the scheduler architecture diagram.
+- Added a dedicated comparison of the scheduling DSL and direct constructors,
+  including equivalent examples and guidance on when to use each API.
 
 ## v0.5.0 - 2026-08-05
 
