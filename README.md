@@ -33,20 +33,20 @@ due jobs through either the async event loop or a worker thread.
 
 ```mermaid
 flowchart TB
-  DSL["`**Metronome scheduler DSL**
-  or direct constructors`"]
+  DSL["`**METRONOME SCHEDULER DSL**
+  (or direct constructors)`"]
 
   subgraph INTERFACES["Scheduling interfaces"]
-    EVERY["`**Interval scheduling**
-    Fixed intervals
-    Optional jitter`"]
-    CRON["`**Cron scheduling**
-    Minute resolution
-    Optional IANA timezones`"]
-    TIMER["`**Systemd-style calendar**
-    Microsecond targets
-    Optional IANA timezones`"]
-    AT["`**One-shot scheduling**`"]
+    EVERY["`**INTERVAL SCHEDULING**
+    - Fixed intervals
+    - Optional jitter`"]
+    CRON["`**CRON SCHEDULING**
+    - Minute resolution
+    - Optional IANA timezones`"]
+    TIMER["`**SYSTEMD-STYLE CALENDAR**
+    - Microsecond targets
+    - Optional IANA timezones`"]
+    AT["`**ONE-SHOT SCHEDULING**`"]
   end
 
   DSL --> EVERY
@@ -59,19 +59,20 @@ flowchart TB
   TIMER --> BEATER
   AT --> BEATER
 
-  BEATER["`**Beater: one job**
-  Deadline, ID, and throttle
-  Bounds and state`"]
-  BEATER -->|Registered with| SCHEDULER["`**Scheduler**
-  Owns beaters and dispatches jobs
-  Manage: pause, resume, and stop
-  Query: state, runs, and failures`"]
+  BEATER["`**BEATER**
+  - One job<br>
+  - Deadline, ID, and throttle<br>
+  - Bounds and state`"]
+  BEATER -->|Registered with| SCHEDULER["`**SCHEDULER**
+  - Owns beaters and dispatches jobs<br>
+  - Manage: pause, resume, and stop<br>
+  - Query: state, runs, and failures`"]
 
-  SCHEDULER --> GATE["`**Dispatch gate**
-  Deadline and bounds
-  Throttle limit`"]
-  GATE --> ASYNC["Run on the async event loop"]
-  GATE --> THREAD["Run in a worker thread (default)"]
+  SCHEDULER --> GATE["`**DISPATCH GATE**
+  - Deadline and bounds<br>
+  - Throttle limit`"]
+  GATE --> ASYNC["Run on the <strong>async event loop</strong>"]
+  GATE --> THREAD["Run in a <strong>worker thread</strong> (default)"]
 
   classDef compact font-size:12px;
   class EVERY,CRON,TIMER,AT,BEATER,SCHEDULER,GATE,ASYNC,THREAD compact;
@@ -86,6 +87,7 @@ flowchart TB
   - [Usage](#usage)
     - [Thread Requirements](#thread-requirements)
   - [Advanced Usage](#advanced-usage)
+    - [DSL vs. Direct Constructors](#dsl-vs-direct-constructors)
     - [Cron](#cron)
       - [Cron Syntax](#cron-syntax)
     - [Schedule by Timer](#schedule-by-timer)
@@ -170,6 +172,60 @@ The repository's tests already enable threads through `tests/config.nims`, but
 applications and ad hoc example builds should pass the flag explicitly.
 
 ## Advanced Usage
+
+### DSL vs. Direct Constructors
+
+The scheduling DSL is the shortest way to declare jobs and is the recommended
+starting point. The `metronome` and `scheduler` macros turn each `every`,
+`cron`, `timer`, or `at` block into a `Beater` and register it with a
+`Scheduler`. The direct constructors expose those same runtime objects; they
+do not use a different scheduling engine.
+
+| DSL declaration | Direct construction |
+| --- | --- |
+| `every(...)` | `initBeater(initTimeInterval(...), ...)` |
+| `cron(...)` | `initBeater(newCron(...), ...)` |
+| `timer(...)` | `initTimerBeater(newTimer(...), ...)` |
+| `at(...)` | `initBeater(dateTime, ...)` |
+
+For example, this DSL application creates an async interval job and starts a
+blocking scheduler:
+
+```nim
+import metronome, times, asyncdispatch
+
+metronome:
+  every(seconds=10, id="tick", async=true):
+    echo "tick"
+```
+
+The equivalent direct construction makes each step explicit:
+
+```nim
+import metronome, times, asyncdispatch
+
+proc tick(): Future[void] {.async.} =
+  echo "tick"
+
+let sched = initScheduler(newSettings())
+let tickBeater = initBeater(
+  interval=initTimeInterval(seconds=10),
+  asyncProc=tick,
+  id="tick"
+)
+
+sched.register(tickBeater)
+sched.serve()
+```
+
+Direct construction is useful when jobs are assembled dynamically at runtime,
+when scheduler-level settings such as an error handler are required, when the
+application needs to retain and inspect a `Beater`, or when a custom schedule
+is supplied through `NextRunProc`. It can also be convenient when job bodies
+already exist as named procedures.
+
+Use `scheduler name:` instead of `metronome:` when you prefer the DSL but need
+to retain the scheduler and call `name.start()` or `name.serve()` yourself.
 
 ### Cron
 
