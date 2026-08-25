@@ -33,49 +33,48 @@ due jobs through either the async event loop or a worker thread.
 
 ```mermaid
 flowchart TB
-  DSL["`**METRONOME SCHEDULER DSL**
-  (or direct constructors)`"]
+  DSL(["Metronome DSL / Direct Constructors"]):::entry
 
-  subgraph INTERFACES["Scheduling interfaces"]
-    EVERY["`**INTERVAL SCHEDULING**
-    - Fixed intervals
-    - Optional jitter`"]
-    CRON["`**CRON SCHEDULING**
-    - Minute resolution
-    - Optional IANA timezones`"]
-    TIMER["`**SYSTEMD-STYLE CALENDAR**
-    - Microsecond targets
-    - Optional IANA timezones`"]
-    AT["`**ONE-SHOT SCHEDULING**`"]
+  subgraph INTERFACES["Scheduling Triggers"]
+    direction LR
+    EVERY["Interval"]:::trigger
+    CRON["Cron"]:::trigger
+    TIMER["Calendar Timer"]:::trigger
+    AT["One-Shot"]:::trigger
   end
 
-  DSL --> EVERY
-  DSL --> CRON
-  DSL --> TIMER
-  DSL --> AT
+  BEATER["Beater"]:::core
+  SCHEDULER["Scheduler"]:::core
+  GATE{"Dispatch Gate"}:::gate
+  ASYNC["Async Event Loop"]:::target
+  THREAD["Worker Thread (Default)"]:::target
 
+  DSL --> INTERFACES
   EVERY --> BEATER
   CRON --> BEATER
   TIMER --> BEATER
   AT --> BEATER
 
-  BEATER["`**BEATER**
-  - One job<br>
-  - Deadline, ID, and throttle<br>
-  - Bounds and state`"]
-  BEATER -->|Registered with| SCHEDULER["`**SCHEDULER**
-  - Owns beaters and dispatches jobs<br>
-  - Manage: pause, resume, and stop<br>
-  - Query: state, runs, and failures`"]
+  BEATER -->|Registers with| SCHEDULER
+  SCHEDULER --> GATE
+  GATE -->|async = true| ASYNC
+  GATE -->|async = false| THREAD
 
-  SCHEDULER --> GATE["`**DISPATCH GATE**
-  - Deadline and bounds<br>
-  - Throttle limit`"]
-  GATE --> ASYNC["Run on the <strong>async event loop</strong>"]
-  GATE --> THREAD["Run in a <strong>worker thread</strong> (default)"]
+  %% Tooltips with full details on hover
+  click EVERY "• Fixed intervals&#10;• Optional jitter"
+  click CRON "• Minute resolution&#10;• Optional IANA timezones"
+  click TIMER "• Microsecond targets&#10;• Optional IANA timezones"
+  click AT "• Exact one-time execution"
+  click BEATER "• One job instance&#10;• Deadline, ID, and throttle&#10;• Bounds and lifecycle state"
+  click SCHEDULER "• Owns beaters and dispatches jobs&#10;• Manage: pause, resume, stop&#10;• Query: state, runs, and failures"
+  click GATE "• Deadline & bounds verification&#10;• Throttle limit enforcement"
 
-  classDef compact font-size:12px;
-  class EVERY,CRON,TIMER,AT,BEATER,SCHEDULER,GATE,ASYNC,THREAD compact;
+  %% Styling palette
+  classDef entry fill:#e8f0fe,stroke:#4285f4,stroke-width:2px,color:#174ea6;
+  classDef trigger fill:#f1f3f4,stroke:#5f6368,stroke-width:1.5px,color:#202124;
+  classDef core fill:#e6f4ea,stroke:#34a853,stroke-width:2px,color:#137333;
+  classDef gate fill:#fef7e0,stroke:#f9ab00,stroke-width:2px,color:#b06000;
+  classDef target fill:#fce8e6,stroke:#ea4335,stroke-width:1.5px,color:#c5221f;
 ```
 
 ## Contents
