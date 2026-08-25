@@ -60,15 +60,6 @@ flowchart TB
   GATE -->|async = true| ASYNC
   GATE -->|async = false| THREAD
 
-  %% Tooltips with full details on hover
-  click EVERY "• Fixed intervals&#10;• Optional jitter"
-  click CRON "• Minute resolution&#10;• Optional IANA timezones"
-  click TIMER "• Microsecond targets&#10;• Optional IANA timezones"
-  click AT "• Exact one-time execution"
-  click BEATER "• One job instance&#10;• Deadline, ID, and throttle&#10;• Bounds and lifecycle state"
-  click SCHEDULER "• Owns beaters and dispatches jobs&#10;• Manage: pause, resume, stop&#10;• Query: state, runs, and failures"
-  click GATE "• Deadline & bounds verification&#10;• Throttle limit enforcement"
-
   %% Styling palette
   classDef entry fill:#e8f0fe,stroke:#4285f4,stroke-width:2px,color:#174ea6;
   classDef trigger fill:#f1f3f4,stroke:#5f6368,stroke-width:1.5px,color:#202124;
@@ -76,6 +67,18 @@ flowchart TB
   classDef gate fill:#fef7e0,stroke:#f9ab00,stroke-width:2px,color:#b06000;
   classDef target fill:#fce8e6,stroke:#ea4335,stroke-width:1.5px,color:#c5221f;
 ```
+
+<details>
+<summary><b>Component Details & Responsibilities</b> <i>(click to expand)</i></summary>
+
+- **Interval Scheduling:** Fixed intervals with optional jitter.
+- **Cron Scheduling:** Minute resolution with optional IANA timezones.
+- **Calendar Timer:** Microsecond-precision systemd-style targets with optional IANA timezones.
+- **One-Shot Scheduling:** Single deadline execution.
+- **Beater:** Manages one job's deadline, ID, throttle limit, bounds, and execution state.
+- **Scheduler:** Owns beaters, applies lifecycle controls (`pause`, `resume`, `stop`), and provides state/run queries.
+- **Dispatch Gate:** Validates deadlines, bounds, and throttle concurrency limits.
+</details>
 
 ## Contents
 
