@@ -68,9 +68,6 @@ flowchart TB
   classDef target fill:#fce8e6,stroke:#ea4335,stroke-width:1.5px,color:#c5221f;
 ```
 
-<details>
-<summary><b>Component Details & Responsibilities</b> <i>(click to expand)</i></summary>
-
 - **Interval Scheduling:** Fixed intervals with optional jitter.
 - **Cron Scheduling:** Minute resolution with optional IANA timezones.
 - **Calendar Timer:** Microsecond-precision systemd-style targets with optional IANA timezones.
@@ -78,7 +75,6 @@ flowchart TB
 - **Beater:** Manages one job's deadline, ID, throttle limit, bounds, and execution state.
 - **Scheduler:** Owns beaters, applies lifecycle controls (`pause`, `resume`, `stop`), and provides state/run queries.
 - **Dispatch Gate:** Validates deadlines, bounds, and throttle concurrency limits.
-</details>
 
 ## Contents
 
