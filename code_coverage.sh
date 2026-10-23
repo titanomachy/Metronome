@@ -16,6 +16,7 @@ rm -rf "$repo_root/nimcache" "$repo_root/coverage_html"
 rm -f "$repo_root/coverage.info"
 
 echo "Compiling and running tests with coverage instrumentation..."
+"$nim" c "${coverage_flags[@]}" --nimcache:nimcache/schedule_calculation -r tests/test_schedule_calculation.nim
 "$nim" c "${coverage_flags[@]}" --nimcache:nimcache/cron -r tests/test_cron.nim
 "$nim" c "${coverage_flags[@]}" --nimcache:nimcache/scheduler -r tests/test_scheduler.nim
 "$nim" c "${coverage_flags[@]}" --nimcache:nimcache/beater -r tests/test_beater.nim

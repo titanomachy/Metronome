@@ -38,6 +38,13 @@
 
 ### Development and regression coverage
 
+- Added a direct deterministic calculator suite for interval alignment and
+  calendar arithmetic, cron zones, precise custom/one-shot targets, exhaustion,
+  and inclusive bounds. Moved arithmetic cases from the beater suite while
+  retaining public delegation/state checks and controlled jitter regressions.
+  The new suite runs without scheduler imports or an event loop and participates
+  in standard test discovery and instrumented coverage. Scheduling APIs and
+  behavior are unchanged.
 - Characterized existing interval alignment, nominal cadence, calendar-relative
   arithmetic, non-positive intervals, per-kind bounds, custom callbacks, overdue
   one-shot deadlines, and calculation exhaustion before separating calculation

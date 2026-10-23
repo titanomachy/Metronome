@@ -102,207 +102,47 @@ test "IntervalBeater.$":
   let beater = initBeater(initTimeInterval(seconds=1), dummyAsync)
   check $beater == "Beater(bkInterval,1 second)"
 
-test "IntervalBeater.fireTime | startTime hasn't come":
-  let current = now().utc()
-  let beater = initBeater(
-    initTimeInterval(seconds=10),
-    dummyAsync,
-    startTime=some(current + initTimeInterval(seconds=4))
-  )
-  let expect = current + initTimeInterval(seconds=4)
-  let actual = beater.fireTime(none(DateTime), current).get()
-  check actual == expect
-
-test "IntervalBeater.fireTime | startTime equals now":
-  let current = dateTime(2026, mJan, 1, 12, 0, 0, 0, utc())
-  let beater = initBeater(
-    initTimeInterval(seconds=10),
-    dummyAsync,
-    startTime=some(current)
-  )
-  let actual = beater.fireTime(none(DateTime), current).get()
-  check actual == current
-
-test "IntervalBeater.fireTime | startTime has come":
-  let current = now().utc()
-  let beater = initBeater(
-    initTimeInterval(seconds=10),
-    dummyAsync,
-    startTime=some(current - initTimeInterval(seconds=14))
-  )
-  let expect = current + initTimeInterval(seconds=6)
-  let actual = beater.fireTime(none(DateTime), current).get()
-  check actual == expect
-
-test "IntervalBeater.fireTime | startTime has come 2":
-  let current = now().utc()
-  let beater = initBeater(
-    initTimeInterval(seconds=10),
-    dummyAsync,
-    startTime=some(current - initTimeInterval(seconds=4))
-  )
-  let expect = current + initTimeInterval(seconds=6)
-  let actual = beater.fireTime(none(DateTime), current).get()
-  check actual == expect
-
-test "IntervalBeater.fireTime | some prev":
-  let current = now().utc()
-  let beater = initBeater(initTimeInterval(seconds=10), dummyAsync)
-  let prev = some(current - initTimeInterval(seconds=4))
-  let actual = beater.fireTime(prev, current).get()
-  let expect = current + initTimeInterval(seconds=6)
-  check actual == expect
-
-test "IntervalBeater.fireTime | missed intervals roll over to next future boundary":
-  let start = dateTime(2026, mJan, 1, 12, 0, 0, 0, utc())
-  let current = dateTime(2026, mJan, 1, 12, 35, 0, 0, utc())
-  let beater = initBeater(
-    initTimeInterval(minutes=10),
-    dummyAsync,
-    startTime=some(start)
-  )
-  let actual = beater.fireTime(none(DateTime), current).get()
-  let expect = dateTime(2026, mJan, 1, 12, 40, 0, 0, utc())
-  check actual == expect
-
-test "IntervalBeater.fireTime | initial alignment differs from prior nominal progression":
+# The arithmetic matrix lives in test_schedule_calculation.nim. Keep public
+# adapter checks here, including prev forwarding and inclusive bounds.
+test "IntervalBeater.fireTime delegates explicit inputs and bounds":
   let start = dateTime(2026, mJan, 1, 12, 0, 0, 0, utc())
   let current = start + initDuration(minutes=30)
+  let target = dateTime(2026, mJan, 1, 12, 40, 0, 0, utc())
   let beater = initBeater(
-    initTimeInterval(minutes=10), dummyAsync, startTime=some(start)
+    initTimeInterval(minutes=10), dummyAsync,
+    startTime=some(start), endTime=some(target)
   )
+  check beater.fireTime(none(DateTime), start - initDuration(seconds=1)) == some(start)
+  check beater.fireTime(none(DateTime), start) == some(start)
+  check beater.fireTime(none(DateTime), current) == some(target)
+  check beater.fireTime(some(start), current) ==
+    some(dateTime(2026, mJan, 1, 12, 10, 0, 0, utc()))
+  check beater.fireTime(some(target), current).isNone
 
-  check beater.fireTime(none(DateTime), current).get() ==
-    start + initDuration(minutes=40)
-  check beater.fireTime(some(start), current).get() ==
-    start + initDuration(minutes=10)
-
-test "IntervalBeater.fireTime | calendar intervals retain distinct initial and later arithmetic":
-  let start = dateTime(2026, mJan, 1, 0, 0, 0, 0, utc())
-  let current = dateTime(2026, mFeb, 15, 0, 0, 0, 0, utc())
-  let previous = dateTime(2026, mFeb, 1, 0, 0, 0, 0, utc())
-  let beater = initBeater(
-    initTimeInterval(months=1), dummyAsync, startTime=some(start)
+  let bounded = initBeater(
+    initTimeInterval(minutes=10), dummyAsync, startTime=some(start),
+    endTime=some(target - initDuration(nanoseconds=1))
   )
+  check bounded.fireTime(none(DateTime), current).isNone
 
-  # Initial alignment uses the 31-day length measured at January 1.
-  check beater.fireTime(none(DateTime), current).get() ==
-    dateTime(2026, mMar, 4, 0, 0, 0, 0, utc())
-  # Subsequent occurrences add a calendar month to the previous occurrence.
-  check beater.fireTime(some(previous), current).get() ==
-    dateTime(2026, mMar, 1, 0, 0, 0, 0, utc())
-
-test "IntervalBeater.fireTime | non-positive intervals retain existing behavior":
-  let current = dateTime(2026, mJan, 1, 12, 0, 0, 0, utc())
-  for seconds in [0, -10]:
-    let interval = initTimeInterval(seconds=seconds)
-    let past = current - initDuration(minutes=1)
-    let future = current + initDuration(minutes=1)
-    let pastBeater = initBeater(interval, dummyAsync, startTime=some(past))
-    let futureBeater = initBeater(interval, dummyAsync, startTime=some(future))
-
-    check pastBeater.fireTime(none(DateTime), current).get() == current
-    check futureBeater.fireTime(none(DateTime), current).get() == future
-    check pastBeater.fireTime(some(past), current).get() == past + interval
-
-test "IntervalBeater.fireTime | initial alignment retains fractional milliseconds":
-  let start = dateTime(2026, mDec, 31, 23, 59, 59, 973_456_789, utc())
-  let current = start + initDuration(milliseconds=25, nanoseconds=321_000)
-  let beater = initBeater(
-    initTimeInterval(milliseconds=10), dummyAsync, startTime=some(start)
-  )
-  let actual = beater.fireTime(none(DateTime), current).get()
-
-  # Elapsed milliseconds are truncated; retain the query's remaining fraction.
-  check actual == dateTime(2027, mJan, 1, 0, 0, 0, 3_777_789, utc())
-  check actual == current + initDuration(milliseconds=5)
-  check beater.fireTime(some(start), current).get() ==
-    start + initDuration(milliseconds=10)
-
-test "IntervalBeater.fireTime | sub-millisecond intervals preserve prior progression":
+test "IntervalBeater.fireTime jitter keeps nominal cadence with controlled samples":
+  privateAccess(Beater)
   let start = dateTime(2026, mJan, 1, 12, 0, 0, 123_456_789, utc())
-  let current = start + initDuration(seconds=1)
   let beater = initBeater(
-    initTimeInterval(microseconds=500), dummyAsync, startTime=some(start)
+    initTimeInterval(seconds=10), dummyAsync, startTime=some(start),
+    jitter=initTimeInterval(milliseconds=1)
   )
-
-  # Initial interval length is zero whole milliseconds; a prior occurrence
-  # still advances by the original TimeInterval at its full precision.
-  check beater.fireTime(none(DateTime), current).get() == current
-  check beater.fireTime(none(DateTime), start).get() == start
-  check beater.fireTime(none(DateTime), start - initDuration(seconds=1)).get() == start
-  check beater.fireTime(some(start), current).get() ==
-    start + initDuration(microseconds=500)
-
-test "IntervalBeater.fireTime | leap years retain anchor length and calendar progression":
-  let monthStart = dateTime(2024, mFeb, 1, 0, 0, 0, 0, utc())
-  let monthCurrent = dateTime(2024, mMar, 1, 0, 0, 0, 0, utc())
-  let monthly = initBeater(
-    initTimeInterval(months=1), dummyAsync, startTime=some(monthStart)
-  )
-  check monthly.fireTime(none(DateTime), monthCurrent).get() ==
-    dateTime(2024, mMar, 30, 0, 0, 0, 0, utc())
-  check monthly.fireTime(some(monthCurrent), monthCurrent).get() ==
-    dateTime(2024, mApr, 1, 0, 0, 0, 0, utc())
-
-  let yearStart = dateTime(2023, mJan, 1, 0, 0, 0, 0, utc())
-  let yearCurrent = dateTime(2024, mJul, 1, 0, 0, 0, 0, utc())
-  let yearly = initBeater(
-    initTimeInterval(years=1), dummyAsync, startTime=some(yearStart)
-  )
-  check yearly.fireTime(none(DateTime), yearCurrent).get() ==
-    dateTime(2024, mDec, 31, 0, 0, 0, 0, utc())
-  check yearly.fireTime(some(dateTime(2024, mJan, 1, 0, 0, 0, 0, utc())),
-    yearCurrent).get() == dateTime(2025, mJan, 1, 0, 0, 0, 0, utc())
-
-test "IntervalBeater.fireTime | endTime equal to next run is allowed":
-  let current = dateTime(2026, mJan, 1, 12, 0, 0, 0, utc())
-  let endTime = dateTime(2026, mJan, 1, 12, 5, 0, 0, utc())
-  let beater = initBeater(
-    initTimeInterval(minutes=10),
-    dummyAsync,
-    startTime=some(current - initTimeInterval(minutes=5)),
-    endTime=some(endTime)
-  )
-  let actual = beater.fireTime(none(DateTime), current)
-  check actual.isSome
-  check actual.get == endTime
-
-test "IntervalBeater.fireTime | endTime before next run stops scheduling":
-  let current = dateTime(2026, mJan, 1, 12, 0, 0, 0, utc())
-  let beater = initBeater(
-    initTimeInterval(minutes=10),
-    dummyAsync,
-    startTime=some(current - initTimeInterval(minutes=5)),
-    endTime=some(current + initTimeInterval(minutes=4))
-  )
-  check beater.fireTime(none(DateTime), current).isNone
-
-test "IntervalBeater.fireTime | jitter":
-  let current = now().utc()
-  let beater = initBeater(
-    initTimeInterval(seconds=10),
-    dummyAsync,
-    startTime=some(current + initTimeInterval(seconds=4)),
-    jitter=initTimeInterval(seconds=5)
-  )
-  let base = current + initTimeInterval(seconds=4)
-  let actual = beater.fireTime(none(DateTime), current).get()
-  check actual >= base
-  check actual <= base + initTimeInterval(seconds=5)
-
-test "IntervalBeater.fireTime | jitter with previous run":
-  let current = now().utc()
-  let beater = initBeater(
-    initTimeInterval(seconds=10),
-    dummyAsync,
-    jitter=initTimeInterval(seconds=5)
-  )
-  let prev = some(current)
-  let base = current + initTimeInterval(seconds=10)
-  let actual = beater.fireTime(prev, current).get()
-  check actual >= base
-  check actual <= base + initTimeInterval(seconds=5)
+  beater.jitterRand = initRand(1)
+  var expectedRand = initRand(1)
+  var previous = start
+  for occurrence in 1..3:
+    let nominal = dateTime(2026, mJan, 1, 12, 0, occurrence * 10,
+      123_456_789, utc())
+    let offsetMs = expectedRand.rand(1)
+    check beater.fireTime(some(previous), start) ==
+      some(nominal + initDuration(milliseconds=offsetMs))
+    check beater.jitterRand == expectedRand
+    previous = nominal
 
 test "IntervalBeater.fireTime | jitter includes both endpoints and samples once per preview":
   privateAccess(Beater)
@@ -511,14 +351,6 @@ test "OnceBeater.fireTime":
 
   check beater.fireTime(none(DateTime), scheduled - initTimeInterval(hours=1)).get() == scheduled
   check beater.fireTime(some(scheduled), scheduled).isNone
-
-test "OnceBeater.fireTime | pending deadlines remain available when due or overdue":
-  let scheduled = dateTime(2026, mJan, 1, 12, 0, 0, 123_456_789, utc())
-  let beater = initBeater(scheduled, dummyAsync)
-
-  check beater.fireTime(none(DateTime), scheduled).get() == scheduled
-  check beater.fireTime(none(DateTime), scheduled + initDuration(hours=1)).get() == scheduled
-  check beater.fireTime(some(scheduled), scheduled + initDuration(hours=1)).isNone
 
 test "Custom Beater delegates to a strictly-future callback":
   let callback: NextRunProc = proc(current: DateTime): Option[DateTime] {.

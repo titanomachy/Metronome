@@ -4,9 +4,10 @@
 
 The baseline inventory, **Internal Architecture and Dependencies**,
 **Nominal Schedule Calculation**, **Jitter and Deadline Planning**,
-**Execution and Lifecycle Integration**, and **Optional Modules and DSL
-Compatibility** categories are complete. The next category is **Deterministic
-Calculation Tests**. The execution checklist is
+**Execution and Lifecycle Integration**, **Optional Modules and DSL
+Compatibility**, and **Deterministic Calculation Tests** categories are complete.
+The next category is **Execution and Public API Regression Tests**. The execution
+checklist is
 `PLANS/PLAN-schedule-calculation-execution.md`; `PLANS/PLAN.md` is absent.
 The plan remains ignored local material under `PLANS/`.
 
@@ -53,8 +54,8 @@ Internal-architecture validation on 2026-10-23:
 - `nimble build`: attempted; no binary target, with the user-confirmed waiver
   described below. `git diff --check` passes.
 
-The dedicated calculation test matrix and final packaging/CI checks remain
-in their later categories; subsequent integration results are recorded below.
+The dedicated calculation test matrix is recorded below; final packaging/CI
+checks remain in their later category.
 Generated documentation, coverage reports/badge, caches, test binaries, and
 the local execution plan remain ignored and are not committed.
 
@@ -296,6 +297,68 @@ Generated docs, coverage reports/badge, caches, test binaries, and the local
 execution plan remain ignored and are not committed. Only the optional-module
 and DSL category is completed here; deterministic calculation tests are next.
 
+## Deterministic calculation tests
+
+Completed on 2026-10-23, starting from `2c523ec` on a clean `development`
+branch. `tests/test_schedule_calculation.nim` imports the private calculator
+and cron constructor directly. Its 18 tests use fixed explicit dates (UTC by
+default) without job futures, event-loop execution, sleeps, clocks, RNG, or
+named timezone data. The suite also compiles and runs with threads disabled;
+compiler-generated dependencies confirm no scheduler, async runtime, timer,
+timezone catalog, or random module is imported.
+
+Durable test boundaries:
+
+- The direct matrix owns interval starts/alignment, exact and missed cadence
+  boundaries, overdue prior nominal progression, calendar-relative months and
+  years, leap dates and rollover, fractional milliseconds, and non-positive or
+  sub-millisecond interval lengths. These cases retain characterized arithmetic.
+- Direct cron tests use deterministic fixed-offset zones, verify configured
+  versus caller zones and matching boundaries, and leave broad DST coverage in
+  the existing timezone/timer suites. Custom tests record callback arguments,
+  one call per query, exact future lower-bound inclusion, precise zoned results,
+  mutable callback state, and exhaustion. One-shot tests retain precise past,
+  present, future, and consumed deadlines. Bounds and repeatability are tested
+  directly across built-in calculations without changing schedule inputs.
+- Arithmetic cases moved out of `tests/test_beater.nim`; focused public adapter
+  tests retain field/previous-time forwarding, bounds, timezone and precision
+  compatibility, constructor validation, and unchanged execution state. Jitter
+  stays here because the scheduler owns sampling: fixed dates and controlled
+  samples cover inert windows, inclusive endpoints, nominal cadence, and bounds.
+  Two clock-based jitter range tests were replaced with a controlled cadence
+  test; existing live execution and throttling checks remain.
+- `nimble test` discovers the new suite automatically. `code_coverage.sh` runs
+  it with its own `nimcache/schedule_calculation` cache, using the unchanged
+  source filter and 80% threshold. Its compiled binary is ignored. This minimal
+  wiring belongs to the new suite; the later packaging/CI audit remains pending.
+
+README and AGENTS.md describe the test split; CHANGELOG.md records it. Existing
+public NimDoc, README API examples, and example code/output remain accurate.
+No runtime logic, public API, dependency, package version, timezone data, or
+scheduling policy changed.
+
+Validation:
+
+- Baseline `nimble test`: 148 passing tests on Nim `2.2.12`.
+- Final `nimble test`: 151 passing tests on local Nim `2.2.12` and minimum
+  supported Nim `2.2.10`, including the new suite; focused calculator/beater
+  suites pass 18/41 tests.
+- The direct calculator suite passes with `--threads:off` as a separate check
+  of runtime independence. Normal suite commands retain `tests/config.nims`.
+- `nimble coverage`: passes at 87.0% (1949/2241 lines). The private calculator
+  has 52/54 lines covered, with the existing source filter unchanged.
+- `nimble docs`: passes; root, scheduler, timezone, timer, and documentation
+  index pages remain present, including the public `NextRunProc` symbol.
+- The unchanged fire-time example compiles/runs with its three expected dates.
+- `nimble build`: attempted, returns "Nothing to build"; retain the previously
+  confirmed source-library waiver, using tests/examples for compilation.
+- `git diff --check`: passes. Validation uses installed compilers and cached
+  Nimble metadata in writable temporary directories, without network access.
+
+Only the deterministic-calculation category is completed here. Execution/public
+API regression review is next. Generated docs, coverage reports/badge, caches,
+test binaries, and the local execution plan remain ignored and are not committed.
+
 ## Baseline snapshot
 
 Starting snapshot, recorded on 2026-10-23:
@@ -481,16 +544,15 @@ include timer parsing or embedded IANA data. Keep the `2026c` catalog unchanged,
 timer day constraints combined with AND, DST gaps skipped, and the earlier
 instant chosen for overlaps. Direct timezone normalization has separate rules.
 
-Focused baseline tests live in `tests/test_beater.nim`; architecture regressions
+Direct arithmetic tests live in `tests/test_schedule_calculation.nim` without
+execution imports. Focused public compatibility tests in `tests/test_beater.nim`
 also cover mutations to interval, jitter, cron, timezone, and callback fields
 without changing execution state. `tests/test_scheduler.nim` verifies direct
 and root public type imports, callback compatibility, beater inheritance, and
-that helpers are not re-exported. The existing cron, timezone, and timer suites
-remain in place. Arithmetic cases use fixed UTC dates. A dedicated calculation
-suite and broader boundary matrix remain later work. The nominal-calculation
-category extends the beater regressions without introducing that suite. README,
-NimDoc, and fire-time examples retain the existing public imports and API. No
-example code or documented output needs changing for these categories.
+that helpers are not re-exported. Existing cron, timezone, and timer suites
+retain broader matching, DST, and optional-adapter coverage. README, NimDoc, and
+fire-time examples retain the existing public imports and API. No example code
+or documented output needs changing for these categories.
 
 Metronome is a source library. Compilation is exercised by the test suites;
 validation does not require a package binary target. In this category,

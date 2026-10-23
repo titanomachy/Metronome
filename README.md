@@ -783,9 +783,12 @@ To run the automated unit tests:
 nimble test
 ```
 
-The beater tests cover schedule calculation boundaries, pause/resume, active-job
-completion after stopping, throttling, and failure handling. Scheduler tests
-also verify startup and callback safety. [PROJECT_STATE.md](PROJECT_STATE.md)
+`tests/test_schedule_calculation.nim` tests the private nominal calculator with
+fixed dates and explicit inputs, without job futures or an event loop. Run it
+alone with `nim c -r tests/test_schedule_calculation.nim`. Beater tests retain
+public calculation compatibility and controlled jitter checks alongside
+pause/resume, active-job completion, throttling, and failure handling. Scheduler
+tests also verify startup and callback safety. [PROJECT_STATE.md](PROJECT_STATE.md)
 records the current calculation and execution contracts for maintainers.
 
 ### Code Coverage
