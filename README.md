@@ -729,6 +729,10 @@ To run the automated unit tests:
 nimble test
 ```
 
+The beater tests include fixed-date characterization of schedule calculation
+boundaries. [PROJECT_STATE.md](PROJECT_STATE.md) records the current calculation
+and execution contracts for maintainers.
+
 ### Code Coverage
 
 Install `lcov` and `genhtml`, then run the canonical coverage task:

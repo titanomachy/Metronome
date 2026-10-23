@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Development and regression coverage
+
+- Characterized existing interval alignment, nominal cadence, calendar-relative
+  arithmetic, non-positive intervals, per-kind bounds, custom callbacks, overdue
+  one-shot deadlines, and calculation exhaustion before separating calculation
+  from execution. Scheduling behavior and public APIs are unchanged.
+- Fixed a GC-safety compilation error in the sub-millisecond deadline test by
+  keeping captured timestamps local to a procedure.
+- Recorded the public API and execution contracts in `PROJECT_STATE.md`.
+
 ## v0.5.1 - 2026-08-23
 
 ### Documentation

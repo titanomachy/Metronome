@@ -102,6 +102,46 @@ test "IntervalBeater.fireTime | missed intervals roll over to next future bounda
   let expect = dateTime(2026, mJan, 1, 12, 40, 0, 0, utc())
   check actual == expect
 
+test "IntervalBeater.fireTime | initial alignment differs from prior nominal progression":
+  let start = dateTime(2026, mJan, 1, 12, 0, 0, 0, utc())
+  let current = start + initDuration(minutes=30)
+  let beater = initBeater(
+    initTimeInterval(minutes=10), dummyAsync, startTime=some(start)
+  )
+
+  check beater.fireTime(none(DateTime), current).get() ==
+    start + initDuration(minutes=40)
+  check beater.fireTime(some(start), current).get() ==
+    start + initDuration(minutes=10)
+
+test "IntervalBeater.fireTime | calendar intervals retain distinct initial and later arithmetic":
+  let start = dateTime(2026, mJan, 1, 0, 0, 0, 0, utc())
+  let current = dateTime(2026, mFeb, 15, 0, 0, 0, 0, utc())
+  let previous = dateTime(2026, mFeb, 1, 0, 0, 0, 0, utc())
+  let beater = initBeater(
+    initTimeInterval(months=1), dummyAsync, startTime=some(start)
+  )
+
+  # Initial alignment uses the 31-day length measured at January 1.
+  check beater.fireTime(none(DateTime), current).get() ==
+    dateTime(2026, mMar, 4, 0, 0, 0, 0, utc())
+  # Subsequent occurrences add a calendar month to the previous occurrence.
+  check beater.fireTime(some(previous), current).get() ==
+    dateTime(2026, mMar, 1, 0, 0, 0, 0, utc())
+
+test "IntervalBeater.fireTime | non-positive intervals retain existing behavior":
+  let current = dateTime(2026, mJan, 1, 12, 0, 0, 0, utc())
+  for seconds in [0, -10]:
+    let interval = initTimeInterval(seconds=seconds)
+    let past = current - initDuration(minutes=1)
+    let future = current + initDuration(minutes=1)
+    let pastBeater = initBeater(interval, dummyAsync, startTime=some(past))
+    let futureBeater = initBeater(interval, dummyAsync, startTime=some(future))
+
+    check pastBeater.fireTime(none(DateTime), current).get() == current
+    check futureBeater.fireTime(none(DateTime), current).get() == future
+    check pastBeater.fireTime(some(past), current).get() == past + interval
+
 test "IntervalBeater.fireTime | endTime equal to next run is allowed":
   let current = dateTime(2026, mJan, 1, 12, 0, 0, 0, utc())
   let endTime = dateTime(2026, mJan, 1, 12, 5, 0, 0, utc())
@@ -162,12 +202,32 @@ test "CronBeater.fireTime | timezone":
   let expect = dateTime(2026, mJan, 1, 12, 0, 0, 0, utc())
   check actual == expect
 
+test "CronBeater.fireTime | current time determines the query despite startTime and prev":
+  let current = dateTime(2026, mJan, 1, 11, 30, 0, 0, utc())
+  let futureStart = current + initDuration(days=1)
+  let beater = initBeater(
+    newCron(hour="12", minute="0"), dummyAsync,
+    startTime=some(futureStart)
+  )
+  let expected = dateTime(2026, mJan, 1, 12, 0, 0, 0, utc())
+
+  check beater.fireTime(none(DateTime), current).get() == expected
+  check beater.fireTime(some(futureStart), current).get() == expected
+
 test "OnceBeater.fireTime":
   let scheduled = dateTime(2026, mJan, 1, 12, 0, 0, 0, utc())
   let beater = initBeater(scheduled, dummyAsync)
 
   check beater.fireTime(none(DateTime), scheduled - initTimeInterval(hours=1)).get() == scheduled
   check beater.fireTime(some(scheduled), scheduled).isNone
+
+test "OnceBeater.fireTime | pending deadlines remain available when due or overdue":
+  let scheduled = dateTime(2026, mJan, 1, 12, 0, 0, 123_456_789, utc())
+  let beater = initBeater(scheduled, dummyAsync)
+
+  check beater.fireTime(none(DateTime), scheduled).get() == scheduled
+  check beater.fireTime(none(DateTime), scheduled + initDuration(hours=1)).get() == scheduled
+  check beater.fireTime(some(scheduled), scheduled + initDuration(hours=1)).isNone
 
 test "Custom Beater delegates to a strictly-future callback":
   let callback: NextRunProc = proc(current: DateTime): Option[DateTime] {.
@@ -187,19 +247,76 @@ test "Custom Beater rejects a nil callback":
   expect ValueError:
     discard initBeater(callback, dummyAsync)
 
-test "Custom Beater does not intentionally launch before a sub-millisecond deadline":
-  let target = now() + initDuration(microseconds=500)
+test "Custom Beater queries just before a future start and otherwise from current time":
   let callback: NextRunProc = proc(current: DateTime): Option[DateTime] {.
       gcsafe, raises: []
     .} =
-    if current < target: some(target) else: none(DateTime)
-  var launched = target - initDuration(seconds=1)
-  let job: BeaterAsyncProc = proc(): Future[void] {.async.} =
-    launched = now()
-  let beater = initBeater(callback, job)
+    some(current + initDuration(nanoseconds=1))
+  let current = dateTime(2026, mJan, 1, 12, 0, 0, 0, utc())
+  let start = current + initDuration(seconds=1, nanoseconds=123_456_789)
+  let beater = initBeater(callback, dummyAsync, startTime=some(start))
 
-  waitFor beater.fire()
-  check launched >= target
+  check beater.fireTime(none(DateTime), current).get() == start
+  check beater.fireTime(some(start), current).get() == start
+  check beater.fireTime(none(DateTime), start).get() ==
+    start + initDuration(nanoseconds=1)
+  check beater.fireTime(some(current), start).get() ==
+    start + initDuration(nanoseconds=1)
+
+test "Custom Beater keeps precise targets and includes the upper bound":
+  let callback: NextRunProc = proc(current: DateTime): Option[DateTime] {.
+      gcsafe, raises: []
+    .} =
+    some(current + initDuration(microseconds=500))
+  let current = dateTime(2026, mJan, 1, 12, 0, 0, 123_456_789, utc())
+  let deadline = current + initDuration(microseconds=500)
+  let beater = initBeater(
+    callback, dummyAsync, startTime=some(current), endTime=some(deadline)
+  )
+
+  check beater.fireTime(none(DateTime), current).get() == deadline
+  check beater.fireTime(none(DateTime), current + initDuration(nanoseconds=1)).isNone
+
+test "Beater calculation exhaustion clears nextRun without stopping or launching":
+  let empty: NextRunProc = proc(current: DateTime): Option[DateTime] {.
+      gcsafe, raises: []
+    .} =
+    none(DateTime)
+  let past = dateTime(2000, mJan, 1, 0, 0, 0, 0, utc())
+  let beaters = [
+    initBeater(empty, dummyAsync, startTime=some(past)),
+    initBeater(
+      initTimeInterval(seconds=1), dummyAsync,
+      startTime=some(past), endTime=some(past)
+    ),
+    initBeater(newCron(), dummyAsync, endTime=some(past))
+  ]
+
+  for beater in beaters:
+    check beater.fireTime(none(DateTime), past + initDuration(days=1)).isNone
+    waitFor beater.fire()
+    check beater.nextRun.isNone
+    check beater.lastRun.isNone
+    check beater.runningCount == 0
+    check beater.failures == 0
+    check beater.state == bsRunning
+
+test "Custom Beater does not intentionally launch before a sub-millisecond deadline":
+  proc main(): bool =
+    let target = now() + initDuration(microseconds=500)
+    let callback: NextRunProc = proc(current: DateTime): Option[DateTime] {.
+        gcsafe, raises: []
+      .} =
+      if current < target: some(target) else: none(DateTime)
+    var launched = target - initDuration(seconds=1)
+    let job: BeaterAsyncProc = proc(): Future[void] {.async.} =
+      launched = now()
+    let beater = initBeater(callback, job)
+
+    waitFor beater.fire()
+    result = launched >= target
+
+  check main()
 
 test "Throttler rejects invalid limits":
   expect ValueError:
