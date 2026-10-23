@@ -22,6 +22,13 @@
   and nominal cadence after launches or throttling. Added controlled jitter
   regressions and clarified preview RNG effects and pending runtime deadlines
   in the README and NimDoc; public APIs and scheduling behavior are unchanged.
+- Verified execution and lifecycle integration with regressions for immediate
+  pause/resume, overdue pending one-shots, active async/thread completion after
+  stopping, concurrency limits and future pruning, contained handler failures,
+  constructor contracts, callback GC safety, and scheduler startup semantics.
+  Consolidated nominal cadence advancement after dispatch or throttling and
+  clarified lifecycle/startup behavior in the README and NimDoc. Existing clock
+  checks, polling, public APIs, and execution behavior are preserved.
 
 ### Development and regression coverage
 

@@ -3,9 +3,9 @@
 ## Schedule calculation refactor progress
 
 The baseline inventory, **Internal Architecture and Dependencies**,
-**Nominal Schedule Calculation**, and **Jitter and Deadline Planning**
-categories are complete. The next category is **Execution and Lifecycle
-Integration**. The execution checklist is
+**Nominal Schedule Calculation**, **Jitter and Deadline Planning**, and
+**Execution and Lifecycle Integration** categories are complete. The next
+category is **Optional Modules and DSL Compatibility**. The execution checklist is
 `PLANS/PLAN-schedule-calculation-execution.md`; `PLANS/PLAN.md` is absent.
 The plan remains ignored local material under `PLANS/`.
 
@@ -52,9 +52,8 @@ Internal-architecture validation on 2026-10-23:
 - `nimble build`: attempted; no binary target, with the user-confirmed waiver
   described below. `git diff --check` passes.
 
-The dedicated calculation test matrix, broader execution/lifecycle verification,
-and final packaging/CI checks remain in their later
-categories.
+The dedicated calculation test matrix, optional-module/DSL verification, and
+final packaging/CI checks remain in their later categories.
 Generated documentation, coverage reports/badge, caches, test binaries, and
 the local execution plan remain ignored and are not committed.
 
@@ -155,6 +154,79 @@ Validation:
 Only the jitter/deadline checklist is completed here. No broader lifecycle,
 optional-module, dedicated-suite, or packaging category was started. Generated
 docs, coverage reports/badge, caches, binaries, and the local plan stay ignored.
+
+## Execution and lifecycle integration
+
+Completed on 2026-10-23, starting from `2a5aa24` on a clean `development`
+branch. The audit confirmed that the extracted calculation boundary, shared
+planner, and execution path already satisfy the lifecycle contracts. The only execution
+consolidation is one nominal-cadence update after dispatch or throttling,
+replacing duplicate assignments. No new execution layer, clock interface,
+runtime dependency, cancellation policy, or restart guard is introduced.
+
+Durable contracts verified by this category:
+
+- `nominalFireTime` remains a thin adapter reading current schedule fields.
+  The calculator never reads the clock; constructors and the execution side
+  supply query, RNG seed, resume, launch, and error timestamps.
+- `fire` publishes effective deadlines, waits with the existing clock and
+  pause-generation checks, checks throttling, and uses the existing normalized
+  launch/watch path. Positive sub-millisecond waits still sleep and recheck.
+  Pending waits stay capped at 100 ms; polling stays at 100 ms for paused
+  beaters, 10 ms for workers, and 1000 ms for scheduler idle.
+- Immediate pause/resume invalidates the old wait even if state is running
+  again at its next check. Interval cadence then advances from resume time;
+  pending one-shots retain their deadline, including overdue occurrences.
+  One-shots stop after one launch while their job future may remain active.
+- Pause, stop, and stopAll leave running jobs intact. Async completion callbacks
+  decrement active counts; worker completion is polled and joined before its
+  future completes. Thread callbacks keep their existing pragmas and exceptions
+  still do not propagate as job-future failures.
+- Throttled occurrences advance nominal cadence without a backlog. Capacity
+  remains configurable, finished futures are pruned, and actual `lastRun`
+  timestamps remain independent from nominal times.
+- Synchronous invocation failures and nil job futures still follow the same
+  recording/handler path as async failures. Job handlers take precedence over
+  scheduler fallback handlers; catchable handler failures remain contained.
+  Async callbacks keep access to global GC-managed state without `gcsafe`.
+- All eight constructor overloads retain defaults and validation. ID behavior,
+  scheduler settings, startup/blocking behavior, and repeated-start semantics
+  are preserved. `start()` and scheduler `waitFor()` return after startup,
+  without waiting for active jobs; `serve()` runs the event loop indefinitely.
+
+Seven added beater tests and three scheduler tests cover these integration
+contracts; the existing async GC-state test now also executes a callback that
+uses global state. Manually completed futures and explicit overdue nominal
+inputs keep most new checks independent of wall-clock timing. Short bounded
+waits cover pause polling and actual worker completion; atomics synchronize the
+held worker fixture without sharing GC-managed state across threads.
+
+README, top-level NimDoc, public lifecycle/startup comments, and CHANGELOG.md
+describe the preserved behavior. The inaccurate scheduler `waitFor` comment
+now describes startup rather than promising to drain jobs. Existing async,
+one-shot, and fire-time examples remain accurate without source/output changes.
+AGENTS.md's architecture and test layout still match the implementation.
+
+Validation:
+
+- Baseline `nimble test`: 130 passing tests on Nim `2.2.12`.
+- Final `nimble test`: 140 passing tests on Nim `2.2.12` and minimum supported
+  Nim `2.2.10`, including 56 beater and 13 scheduler tests.
+- `nimble coverage`: passes at 86.9% (1938/2231 lines), above the 80% minimum;
+  the standard instrumented suites exercise the private calculator unchanged.
+- `nimble docs`: passes; generated root/scheduler lifecycle and startup text
+  is present, and optional timezone/timer pages remain present.
+- Unchanged async, one-shot, and fire-time examples compile and run with threads
+  enabled. The fire-time example retains its three expected timestamps.
+- `nimble build`: attempted, returns "Nothing to build"; retain the previously
+  confirmed source-library build waiver, using tests/examples for compilation.
+- `git diff --check`: passes. Validation uses the installed compilers and
+  isolated writable Nimble/compiler caches under `/tmp`.
+
+Only the execution/lifecycle checklist is completed here. Optional modules/DSL
+compatibility is next; no later category or dedicated suite was started.
+Generated docs, coverage reports/badge, caches, test binaries, and the local
+plan remain ignored and are not committed.
 
 ## Baseline snapshot
 

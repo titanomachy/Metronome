@@ -172,20 +172,20 @@ proc runningCount*(beater: Beater): int =
   beater.runningBeats
 
 proc pause*(beater: Beater) =
-  ## Pause future job launches for this beater.
+  ## Pause future launches and clear the pending deadline without cancelling jobs.
   if beater.state != bsStopped:
     beater.state = bsPaused
     beater.nextRunTime = none(DateTime)
     beater.pauseGeneration.inc
 
 proc resume*(beater: Beater) =
-  ## Resume job launches for this beater.
+  ## Resume launches; intervals advance from resume time and pending one-shots remain.
   if beater.state == bsPaused:
     beater.state = bsRunning
     beater.resumeTime = some(now())
 
 proc stop*(beater: Beater) =
-  ## Stop this beater permanently.
+  ## Stop future launches permanently, allowing running jobs to finish.
   beater.state = bsStopped
   beater.nextRunTime = none(DateTime)
 
@@ -559,6 +559,7 @@ proc waitUntil(
     if current >= whenToRun:
       return true
     let remainingMs = (whenToRun - current).inMilliseconds
+    # A positive sub-millisecond remainder truncates to zero: wait and recheck.
     let sleepMs = if remainingMs <= 0: 1 else: min(remainingMs, 100)
     await sleepAsync(int(sleepMs))
   result = false
@@ -605,6 +606,9 @@ proc fire*(
   errorHandler: JobErrorHandler = nil
 ) {.async.} =
   ## Fire beats as async loop until no beats can be scheduled.
+  ## Publish and wait for effective deadlines while advancing nominal cadence.
+  ## Exhaustion clears `nextRun` but does not itself stop the beater. A one-shot
+  ## stops after launch; running job futures may outlive this loop.
   var prev = none(DateTime)
   while self.state != bsStopped:
     if self.state == bsPaused:
@@ -626,6 +630,7 @@ proc fire*(
     let pauseGeneration = self.pauseGeneration
     let reachedRunTime = await waitUntil(self, occurrence.effective, pauseGeneration)
     if not reachedRunTime:
+      # A pause/resume cycle invalidates the wait even if already running again.
       prev = none(DateTime)
       continue
     if self.state == bsStopped:
@@ -636,12 +641,12 @@ proc fire*(
       self.lastRunTime = some(now())
       self.throttler.submit(fut)
       self.watch(fut, errorHandler)
-      prev = some(occurrence.nominal)
       if self.kind == bkOnce:
         self.stop()
     else:
       debug("\"", self.id, "\" is trottled. Maximum num is ", self.throttler.num, ".")
-      prev = some(occurrence.nominal)
+    # A skipped occurrence consumes its cadence slot without queuing a job.
+    prev = some(occurrence.nominal)
 
 type
   Scheduler* = ref object
@@ -705,7 +710,7 @@ proc stop*(self: Scheduler, id: string): bool =
   result = true
 
 proc stopAll*(self: Scheduler) =
-  ## Stop all registered jobs.
+  ## Stop future launches for all registered jobs, allowing active jobs to finish.
   for beater in self.beaters:
     beater.stop()
 
@@ -764,7 +769,8 @@ proc idle*(self: Scheduler) {.async.} =
     await sleepAsync(1000)
 
 proc start*(self: Scheduler) {.async.} =
-  ## Start the scheduler.
+  ## Start and retain fire loops, returning without waiting for jobs to finish.
+  ## Each call starts new loops; there is no restart guard.
   for beater in self.beaters:
     let fut = fire(beater, self.settings.errorHandler)
     self.futures.add(fut)
@@ -777,7 +783,7 @@ proc serve*(self: Scheduler) =
   runForever()
 
 proc waitFor*(self: Scheduler) =
-  ## Run all beats til they're completed.
+  ## Block until scheduler startup returns, without waiting for jobs to finish.
   waitFor start(self)
 
 proc parseCron(call: NimNode): tuple[

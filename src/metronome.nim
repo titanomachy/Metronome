@@ -145,6 +145,8 @@
 ## ## Throttling
 ##
 ## By default, only one instance of the job is to be scheduled at the same time. If a job hasn't finished but the next run time has come, the next job will not be scheduled.
+## Skipped occurrences advance nominal interval cadence without queuing a backlog.
+## Finished job futures free capacity for later occurrences.
 ##
 ## You can allow more instances by specifying `throttle=`. For example::
 ##
@@ -161,6 +163,10 @@
 ## ## Customize Scheduler
 ##
 ## Sometimes, you want to run the scheduler in parallel with other libraries. In this case, you can create your own scheduler by macro scheduler and start it later.
+## start() starts fire loops and returns without waiting for jobs to finish.
+## The scheduler's waitFor() also waits only for startup; keep the event loop
+## running for pending jobs, or use the blocking serve() loop. Start each
+## scheduler once: repeated calls start additional fire loops.
 ##
 ## Below is an example of running Metronome and Prologue in one process.::
 ##
@@ -329,9 +335,14 @@
 ## interval jobs schedule from the current time instead of replaying every
 ## interval missed during the pause.
 ##
+## Pending one-shots survive pauses even if their deadline passes before resume,
+## and stop after exactly one launch. Dispatch rechecks the clock after waiting,
+## including for positive deadlines less than a millisecond away.
+##
 ## resume(id) returns a paused job to normal scheduling. stop(id) permanently
 ## stops one job and clears its next run time. stopAll() permanently stops all
-## registered jobs. The ID-based control procs return true when exactly one job
+## registered jobs. Active async jobs and worker threads can finish after either
+## stop operation. The ID-based control procs return true when exactly one job
 ## matches the id and false when the id is missing, empty, or ambiguous.
 ##
 ## Example usage::

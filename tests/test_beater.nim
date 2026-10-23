@@ -1,6 +1,6 @@
 import unittest
 import times, options, asyncdispatch
-import std/[importutils, random]
+import std/[atomics, importutils, os, random]
 import metronome
 
 proc dummyAsync(): Future[void] {.async.} = discard
@@ -16,6 +16,16 @@ proc nilFuture(): Future[void] =
 
 proc shortThread() {.thread, gcsafe.} =
   discard
+
+var threadEntered, releaseThread: Atomic[bool]
+
+proc heldThread() {.thread, gcsafe.} =
+  threadEntered.store(true)
+  # Bound the fixture even if a failed assertion prevents normal release.
+  for attempt in 0..<2000:
+    if releaseThread.load():
+      break
+    sleep(1)
 
 proc fixedTimezone(name: string, offset: int): Timezone =
   # std/times offsets are seconds west of UTC. No host zoneinfo is consulted.
@@ -881,3 +891,250 @@ test "Beater one-shot resumes pending run":
     await fut
 
   check waitFor(main())
+
+test "Beater constructor families preserve defaults and validation":
+  privateAccess(Beater)
+  privateAccess(Throttler)
+  let empty: NextRunProc = proc(current: DateTime): Option[DateTime] {.
+      gcsafe, raises: []
+    .} = none(DateTime)
+  let deadline = dateTime(2000, mJan, 1, 0, 0, 0, 0, utc())
+  template verify(schedule: untyped, expectedKind: BeaterKind) =
+    block:
+      let before = now()
+      let asyncBeater = initBeater(schedule, dummyAsync)
+      let threadBeater = initBeater(schedule, shortThread)
+      let after = now()
+      for beater in [asyncBeater, threadBeater]:
+        check beater.kind == expectedKind
+        check beater.id == ""
+        check beater.state == bsRunning
+        check beater.throttler.num == 1
+        check beater.runningCount == 0
+        check beater.lastRun.isNone
+        check beater.nextRun.isNone
+        check beater.endTime.isNone
+        check beater.errorHandler.isNil
+        check beater.lastError.isNil
+        check beater.lastErrorAt.isNone
+        check beater.failures == 0
+        if expectedKind == bkOnce:
+          check beater.startTime == deadline
+        else:
+          check beater.startTime >= before
+          check beater.startTime <= after
+      expect ValueError:
+        discard initBeater(schedule, dummyAsync, throttleNum=0)
+      expect ValueError:
+        discard initBeater(schedule, shortThread, throttleNum=0)
+      expect ValueError:
+        discard initBeater(schedule, shortThread, errorHandler=beaterHandler)
+  verify(initTimeInterval(seconds=1), bkInterval)
+  verify(newCron(), bkCron)
+  verify(empty, bkCustom)
+  verify(deadline, bkOnce)
+  check initBeater(initTimeInterval(seconds=1), dummyAsync).jitter == initTimeInterval()
+  check initBeater(newCron(), dummyAsync).timezone.isNone
+
+test "Immediate pause/resume invalidates an interval wait and uses resume time":
+  let current = now()
+  let deadline = current + initDuration(hours=1)
+  let beater = initBeater(
+    initTimeInterval(days=1), dummyAsync,
+    startTime=some(deadline), endTime=some(deadline)
+  )
+  let firing = beater.fire()
+  defer:
+    beater.stop()
+    waitFor firing
+
+  check beater.nextRun == some(deadline)
+  # No event-loop turn between pause and resume: state alone cannot detect this.
+  for cycle in 0..<2:
+    beater.pause()
+    check beater.nextRun.isNone
+    beater.resume()
+
+  # Resume + one day exceeds endTime. Reusing the invalidated wait would hang.
+  check waitFor withTimeout(firing, 1000)
+  check beater.nextRun.isNone
+  check beater.lastRun.isNone
+  check beater.runningCount == 0
+  check beater.state == bsRunning
+
+test "Paused one-shots retain overdue deadlines and stop after one launch":
+  proc main(): Future[void] {.async.} =
+    for initiallyOverdue in [true, false]:
+      let deadline = if initiallyOverdue:
+        dateTime(2000, mJan, 1, 0, 0, 0, 0, utc())
+      else:
+        now() + initDuration(milliseconds=20)
+      var launches = 0
+      let active = newFuture[void]("paused one-shot job")
+      let job: BeaterAsyncProc = proc(): Future[void] =
+        launches.inc
+        active
+      let beater = initBeater(deadline, job)
+      # Pause before starting so system load cannot race the future deadline.
+      beater.pause()
+      let firing = beater.fire()
+      check beater.nextRun.isNone
+      if not initiallyOverdue:
+        await sleepAsync(30)
+        check now() >= deadline
+      check launches == 0
+      beater.resume()
+      let finished = await withTimeout(firing, 1000)
+      check beater.state == bsStopped
+      beater.stop()
+      await firing
+      check finished
+      check launches == 1
+      check beater.state == bsStopped
+      check beater.nextRun.isNone
+      check beater.lastRun.get() >= deadline
+      check beater.runningCount == 1
+      check not active.finished
+      # Neither restarting the fire loop nor resuming revives a stopped beater.
+      beater.resume()
+      await beater.fire()
+      check launches == 1
+      active.complete()
+      await sleepAsync(0)
+      check beater.runningCount == 0
+
+  waitFor main()
+
+test "Pause and stop retain an active async job and its actual launch timestamp":
+  privateAccess(Beater)
+  privateAccess(Throttler)
+  proc main(): Future[void] {.async.} =
+    let active = newFuture[void]("active job across stop")
+    let launched = newFuture[void]("launch signal")
+    var launches = 0
+    let job: BeaterAsyncProc = proc(): Future[void] =
+      launches.inc
+      launched.complete()
+      active
+    let deadline = now()
+    let beater = initBeater(
+      initTimeInterval(hours=1), job, startTime=some(deadline)
+    )
+    # An overdue prior occurrence avoids racing initial alignment under load.
+    beater.resumeTime = some(deadline - initDuration(hours=1))
+    let firing = beater.fire()
+    let didLaunch = await withTimeout(launched, 1000)
+    check didLaunch
+    let actual = beater.lastRun
+    check actual.isSome
+    if actual.isSome:
+      check actual.get() >= deadline
+      check actual.get() <= now()
+    check beater.nextRun == some(deadline + initDuration(hours=1))
+    beater.pause()
+    check beater.nextRun.isNone
+    check beater.runningCount == 1
+    beater.stop()
+    await firing
+    check not active.finished
+    check beater.runningCount == 1
+    check beater.lastRun == actual
+    active.complete()
+    await sleepAsync(0)
+    check beater.runningCount == 0
+    check not beater.throttler.throttled
+    check beater.throttler.beats.len == 0
+    beater.resume()
+    await beater.fire()
+    check beater.state == bsStopped
+    check launches == 1
+
+  waitFor main()
+
+test "Throttled occurrences retain capacity limits and create no deferred jobs":
+  privateAccess(Beater)
+  privateAccess(Throttler)
+  let nominal = dateTime(2000, mJan, 1, 0, 0, 0, 0, utc())
+  var active: seq[Future[void]]
+  let job: BeaterAsyncProc = proc(): Future[void] =
+    result = newFuture[void]("concurrent throttled job")
+    active.add(result)
+  let beater = initBeater(
+    initTimeInterval(seconds=1), job, startTime=some(nominal),
+    endTime=some(nominal + initDuration(seconds=3)), throttleNum=2
+  )
+  beater.resumeTime = some(nominal - initDuration(seconds=1))
+  let beforeLaunch = now()
+  waitFor beater.fire()
+  check active.len == 2
+  check beater.runningCount == 2
+  check beater.throttler.throttled
+  check beater.throttler.beats.len == 2
+  check beater.lastRun.get() >= beforeLaunch
+  check beater.nextRun.isNone
+  check beater.state == bsRunning
+  for future in active:
+    future.complete()
+  waitFor sleepAsync(0)
+  check beater.runningCount == 0
+  check not beater.throttler.throttled
+  check beater.throttler.beats.len == 0
+  check beater.throttler.num == 2
+  check active.len == 2
+
+test "Catchable job error-handler failures do not stop dispatch or use fallback":
+  privateAccess(Beater)
+  let nominal = dateTime(2000, mJan, 1, 0, 0, 0, 0, utc())
+  var handlerCalls = 0
+  let handler: JobErrorHandler = proc(fut: Future[void]) {.gcsafe.} =
+    discard fut.readError()
+    handlerCalls.inc
+    raise newException(ValueError, "handler failed")
+  let beater = initBeater(
+    initTimeInterval(seconds=1), synchronouslyFailing,
+    startTime=some(nominal), endTime=some(nominal + initDuration(seconds=2)),
+    errorHandler=handler
+  )
+  beater.resumeTime = some(nominal - initDuration(seconds=1))
+  fallbackHandlerCalls = 0
+  let beforeLaunch = now()
+  waitFor beater.fire(fallbackHandler)
+  waitFor sleepAsync(0)
+  check handlerCalls == 3
+  check fallbackHandlerCalls == 0
+  check beater.failures == 3
+  check beater.lastError.msg == "synchronous boom"
+  check beater.lastErrorAt.get() >= beforeLaunch
+  check beater.runningCount == 0
+  check beater.nextRun.isNone
+  check beater.state == bsRunning
+
+test "Stopping a thread-backed beater allows its worker to finish and be joined":
+  privateAccess(Beater)
+  proc main(): Future[void] {.async.} =
+    threadEntered.store(false)
+    releaseThread.store(false)
+    let deadline = now()
+    let beater = initBeater(
+      initTimeInterval(hours=1), heldThread, startTime=some(deadline)
+    )
+    beater.resumeTime = some(deadline - initDuration(hours=1))
+    let firing = beater.fire()
+    proc entered(): Future[void] {.async.} =
+      while not threadEntered.load() and beater.state == bsRunning:
+        await sleepAsync(1)
+    let didEnter = await withTimeout(entered(), 1000)
+    check didEnter
+    beater.stop()
+    await firing
+    check beater.runningCount == 1
+    releaseThread.store(true)
+    proc drained(): Future[void] {.async.} =
+      while beater.runningCount > 0:
+        await sleepAsync(1)
+    check await withTimeout(drained(), 1000)
+    check beater.runningCount == 0
+    check beater.nextRun.isNone
+    check beater.failures == 0
+
+  waitFor main()

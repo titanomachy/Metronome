@@ -1,6 +1,7 @@
 import unittest
 
 import times, options, asyncdispatch, strutils
+import std/importutils
 import metronome
 import metronome/scheduler as schedulerApi
 
@@ -84,6 +85,14 @@ test "Async scheduler jobs can access global GC-managed state":
       macroGcState.calls.inc
 
   check testGlobalGcState.listJobs == @["global-gc-state"]
+  let before = macroGcState.calls
+  let job: BeaterAsyncProc = proc(): Future[void] {.async.} =
+    macroGcState.calls.inc
+  let beater = initBeater(dateTime(2000, mJan, 1, 0, 0, 0, 0, utc()), job)
+  waitFor beater.fire()
+  waitFor sleepAsync(0)
+  check macroGcState.calls == before + 1
+  check beater.runningCount == 0
 
 test "Scheduler lists and controls registered jobs":
   let scheduler = initScheduler(newSettings())
@@ -211,3 +220,84 @@ test "Scheduler macro supports one-shot jobs":
 
   check macroOnceCalls == 1
   check testOnce.jobState("once").get == bsStopped
+
+test "Scheduler startup returns with pending jobs and stopAll allows active completion":
+  privateAccess(Scheduler)
+  let scheduler = initScheduler(newSettings())
+  let active = newFuture[void]("scheduler active job")
+  var launches = 0
+  let job: BeaterAsyncProc = proc(): Future[void] =
+    launches.inc
+    active
+  scheduler.register(initBeater(
+    dateTime(2000, mJan, 1, 0, 0, 0, 0, utc()), job, id="active"
+  ))
+  scheduler.register(initBeater(
+    dateTime(2100, mJan, 1, 0, 0, 0, 0, utc()), job, id="pending"
+  ))
+  let startup = scheduler.start()
+  check startup.finished
+  waitFor startup
+  check scheduler.futures.len == 2
+  check not scheduler.futures[1].finished
+  check scheduler.nextRun("pending").isSome
+  check scheduler.runningCount("active") == 1
+  check not active.finished
+  scheduler.stopAll()
+  for firing in scheduler.futures:
+    waitFor firing
+  check scheduler.jobState("pending").get() == bsStopped
+  check scheduler.nextRun("pending").isNone
+  check scheduler.runningCount("active") == 1
+  check not active.finished
+  active.complete()
+  waitFor sleepAsync(0)
+  check scheduler.runningCount("active") == 0
+  check launches == 1
+
+test "Repeated scheduler startup and waitFor keep existing nonblocking semantics":
+  privateAccess(Scheduler)
+  proc main() =
+    var queries = 0
+    let empty: NextRunProc = proc(current: DateTime): Option[DateTime] {.
+        gcsafe, raises: []
+      .} =
+      queries.inc
+      none(DateTime)
+    let scheduler = initScheduler(newSettings())
+    scheduler.register(initBeater(empty, noop, id="exhausted"))
+    let pending = newFuture[void]("waitFor does not drain this job")
+    scheduler.register(initBeater(
+      dateTime(2000, mJan, 1, 0, 0, 0, 0, utc()),
+      proc(): Future[void] = pending, id="pending-job"
+    ))
+    waitFor scheduler.start()
+    waitFor scheduler.start()
+    scheduler.waitFor()
+    check queries == 3
+    check scheduler.futures.len == 6
+    for firing in scheduler.futures:
+      check firing.finished
+    check scheduler.jobState("exhausted").get() == bsRunning
+    check scheduler.lastRun("exhausted").isNone
+    check not pending.finished
+    check scheduler.runningCount("pending-job") == 1
+    pending.complete()
+    waitFor sleepAsync(0)
+    check scheduler.runningCount("pending-job") == 0
+
+  main()
+
+test "Scheduler fallback handler records async failures after startup returns":
+  macroErrorHandlerCalls = 0
+  let scheduler = initScheduler(newSettings(errorHandler=macroErrorHandler))
+  scheduler.register(initBeater(
+    dateTime(2000, mJan, 1, 0, 0, 0, 0, utc()), failingJob, id="failure"
+  ))
+  waitFor scheduler.start()
+  waitFor sleepAsync(0)
+  check macroErrorHandlerCalls == 1
+  check scheduler.failures("failure") == 1
+  check scheduler.lastError("failure").msg.contains("boom")
+  check scheduler.lastErrorAt("failure").isSome
+  check scheduler.runningCount("failure") == 0

@@ -429,7 +429,8 @@ let beater = initBeater(
 
 By default, only one instance of the job is to be scheduled at the same time.
 If a job hasn't finished but the next run time has come, the next job will
-not be scheduled.
+not be scheduled. That occurrence is skipped; interval cadence advances from
+its nominal time without queuing a backlog. Finished job futures free capacity.
 
 You can allow more instances by specifying `throttle=`. For example:
 
@@ -451,6 +452,11 @@ metronome:
 Sometimes, you want to run the scheduler in parallel with other libraries.
 In this case, you can create your own scheduler by macro `scheduler` and
 start it later.
+
+`start()` starts the fire loops and returns without waiting for jobs to finish.
+The scheduler's `waitFor()` also waits only for startup. Keep the event loop
+running to execute pending jobs; `serve()` does this with a blocking loop.
+Start each scheduler once: repeated calls start additional fire loops.
 
 Below is an example showing how to run Metronome concurrently with the Prologue
 web framework in one process. The scheduled job uses a GC-managed file logger,
@@ -685,9 +691,14 @@ are not cancelled. While paused, `nextRun(id)` is cleared; when resumed, interva
 jobs schedule from the current time instead of replaying every interval missed
 during the pause.
 
+Pending one-shot jobs survive a pause, including when their deadline passes
+before resume, and stop after exactly one launch. Dispatch rechecks the clock
+after waiting, including for positive deadlines less than a millisecond away.
+
 `resume(id)` returns a paused job to normal scheduling. `stop(id)` permanently
 stops one job and clears its next run time. `stopAll()` permanently stops all
-registered jobs. The ID-based control procs return `true` when exactly one job
+registered jobs. Active async jobs and worker threads can finish after either
+stop operation. The ID-based control procs return `true` when exactly one job
 matches the id and `false` when the id is missing, empty, or ambiguous.
 
 ```nim
@@ -763,9 +774,10 @@ To run the automated unit tests:
 nimble test
 ```
 
-The beater tests include fixed-date characterization of schedule calculation
-boundaries. [PROJECT_STATE.md](PROJECT_STATE.md) records the current calculation
-and execution contracts for maintainers.
+The beater tests cover schedule calculation boundaries, pause/resume, active-job
+completion after stopping, throttling, and failure handling. Scheduler tests
+also verify startup and callback safety. [PROJECT_STATE.md](PROJECT_STATE.md)
+records the current calculation and execution contracts for maintainers.
 
 ### Code Coverage
 
