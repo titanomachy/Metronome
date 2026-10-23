@@ -1,3 +1,5 @@
+# Compile and run from the repository root:
+# nim c --threads:on -r examples/example_basic_intervals.nim
 import times, asyncdispatch, os, options
 import metronome
 
@@ -7,8 +9,8 @@ scheduler myBasicSched:
   # Run a sync procedure every 2 seconds
   every(seconds=2, id="sync-task"):
     echo "[sync-task] Running at: ", now()
-    # Note: blocking calls like sleep() will block the current worker thread,
-    # so we set throttle=2 to allow multiple runs to overlap.
+    # sleep() blocks this worker thread. The default throttle=1 prevents
+    # overlapping runs of this job.
     sleep(1000)
 
   # Run an async procedure every 3 seconds with throttling
@@ -29,6 +31,7 @@ scheduler myBasicSched:
 proc main() =
   echo "Starting basic interval scheduler example..."
   # Start the scheduler and keep the event loop running.
+  # serve() stays alive after the windowed job's schedule is exhausted.
   myBasicSched.serve()
 
 if isMainModule:

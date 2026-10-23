@@ -604,8 +604,9 @@ The examples are the runnable counterparts to the snippets in this guide:
   demonstrates Systemd-style `OnCalendar` timers with named timezones and
   microsecond calendar targets.
 * [example_firetime_calculations.nim](examples/example_firetime_calculations.nim)
-  and [example_one_shot.nim](examples/example_one_shot.nim) cover their matching
-  sections above.
+  previews interval alignment, an inclusive end bound, and cron using fixed UTC
+  inputs, without starting jobs.
+* [example_one_shot.nim](examples/example_one_shot.nim) runs one async job once.
 * [example_prologue.nim](examples/example_prologue.nim) shows async integration
   with Prologue and a file logger, and requires Prologue in addition to
   Metronome.
@@ -643,6 +644,20 @@ let beater = initBeater(
 )
 
 echo beater.fireTime(none(DateTime), current).get()
+```
+
+This prints `2026-01-01T12:40:00Z`. The complete
+[fire-time example](examples/example_firetime_calculations.nim) also previews
+an inclusive interval window and a cron occurrence:
+
+```bash
+nim c --threads:on -r examples/example_firetime_calculations.nim
+```
+
+```text
+Interval next run: 2026-01-01T12:40:00Z
+Windowed next run: 2026-01-01T12:40:00Z
+Cron next run: 2027-01-01T00:00:00Z
 ```
 
 Here `none(DateTime)` requests initial alignment: a past interval anchor uses
@@ -807,6 +822,8 @@ report when and how often the job failed. `runningCount(id)` reports currently
 running job futures for that scheduled job.
 
 ## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md#unreleased) for unreleased changes.
 
 Released:
 * v0.5.1, 23 Aug, 2026, Clarify scheduler architecture, add section about scheduler and direct constructors.

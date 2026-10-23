@@ -295,6 +295,18 @@
 ##
 ##     echo beater.fireTime(none(DateTime), current).get()
 ##
+## This prints 2026-01-01T12:40:00Z. For interval, inclusive-window, and cron
+## previews with fixed UTC inputs, run the complete example from the repository
+## root::
+##
+##     nim c --threads:on -r examples/example_firetime_calculations.nim
+##
+## Its output is::
+##
+##     Interval next run: 2026-01-01T12:40:00Z
+##     Windowed next run: 2026-01-01T12:40:00Z
+##     Cron next run: 2027-01-01T00:00:00Z
+##
 ## With no previous occurrence, intervals align using their whole-millisecond
 ## length at startTime; an exact past cadence boundary advances a full interval.
 ## With a previous nominal occurrence, the original calendar-relative interval

@@ -6,8 +6,9 @@ The baseline inventory, **Internal Architecture and Dependencies**,
 **Nominal Schedule Calculation**, **Jitter and Deadline Planning**,
 **Execution and Lifecycle Integration**, **Optional Modules and DSL
 Compatibility**, **Deterministic Calculation Tests**, **Execution and Public
-API Regression Tests**, and **README and Source Documentation** categories are
-complete. The next category is **Examples and Changelog**. The execution checklist is
+API Regression Tests**, **README and Source Documentation**, and **Examples and
+Changelog** categories are complete. The next category is **Test Discovery,
+Coverage, Packaging, and CI**. The execution checklist is
 `PLANS/PLAN-schedule-calculation-execution.md`; `PLANS/PLAN.md` is absent.
 The plan remains ignored local material under `PLANS/`.
 
@@ -472,6 +473,57 @@ Validation on Nim `2.2.12`:
 Only this documentation category is completed. The later examples/changelog
 review and packaging/CI audit remain pending. Generated docs, caches, binaries,
 and the updated local execution checklist remain ignored and are not committed.
+
+## Examples and changelog
+
+Completed on 2026-10-24, starting from `72d591b` on a clean `development`
+branch. Reviewed all ten examples against the public imports and calculation /
+execution boundary. Only explanatory comments in the interval and fire-time
+examples needed changes; their non-comment code is identical to the baseline.
+The remaining examples, including the optional Prologue integration, are
+unchanged. No runtime, API, dependency, package version, release history, or
+scheduling policy changed.
+
+Durable example contracts:
+
+- The fire-time example uses supported `metronome` imports, fixed UTC dates,
+  and zero jitter. Its required async job is never invoked by `fireTime`; the
+  preview starts no event loop and publishes no runtime `nextRun` deadline.
+  It retains all three outputs: interval and inclusive-window previews at
+  `2026-01-01T12:40:00Z`, and cron at `2027-01-01T00:00:00Z`.
+- README and source NimDoc now show the complete example's command and output.
+  Their shorter preview snippets still print `2026-01-01T12:40:00Z`. Examples
+  use public APIs; none asks applications to import the private calculator.
+- The basic interval example uses default throttle 1 for its thread-backed
+  job. Corrected its comment claiming throttle 2 and clarified that `serve()`
+  remains alive after the bounded job exhausts its schedule.
+- Named-timezone and calendar-timer examples retain their optional imports,
+  winter/summer UTC offsets, and microsecond calendar target. Prologue remains
+  optional and is compiled only when its integration changes and dependencies
+  are available. README links to unreleased notes separately from releases.
+
+Validation on Nim `2.2.12`:
+
+- Baseline and final `nimble test`: all 154 tests pass.
+- All nine examples without Prologue compile with threads enabled. The
+  fire-time, named-timezone, timer, async, and one-shot examples run with bounded
+  process timeouts; automated output checks verify fixed timestamps, offsets,
+  microseconds, and job completion. Disposable interval/cron harnesses retain
+  the example definitions, start their schedulers, then stop and drain fire
+  loops and active jobs without waiting for distant cron occurrences.
+- Both README/NimDoc preview snippets compile and run; their output and the
+  full documented three-line output match the fire-time example exactly.
+- `nimble docs`: passes without warnings. Generated public pages are present
+  and the root page contains the expected example output. README local links
+  resolve. No test, coverage, packaging, or CI configuration changed.
+- `nimble build`: attempted; returns "Nothing to build" under the existing
+  user-confirmed source-library waiver. Tests and examples verify compilation.
+- `git diff --check`: passes. Validation uses isolated Nimble metadata and
+  temporary build/cache directories; documentation remains generated locally.
+
+Only this category is complete; the packaging/CI audit is next. Generated
+documentation, temporary verification harnesses, binaries, caches, and the
+local execution checklist are not committed.
 
 ## Baseline snapshot
 

@@ -38,6 +38,12 @@
 
 ### Documentation
 
+- Reviewed interval, async, cron, one-shot, named-timezone, and calendar-timer
+  examples against the extracted calculation boundary. Documented the fire-time
+  example's unchanged deterministic output and public preview API in README and
+  NimDoc, corrected the interval example's throttle comment, and clarified that
+  its blocking loop outlives schedule exhaustion. Scheduling APIs and behavior
+  are unchanged; Prologue remains an optional integration dependency.
 - Updated the architecture diagram and README/NimDoc guidance to distinguish
   nominal occurrences, effective pending deadlines, and actual launch timestamps.
   Clarified per-kind start bounds, inclusive deadline limits, preview RNG effects,
