@@ -119,9 +119,17 @@
 ##       ):
 ##         echo "Running nightly"
 ##
+## Both entry macros support async and thread-backed timer jobs. The DSL
+## resolves the optional timer API from the caller's imports. Direct
+## initTimerBeater overloads retain a parsed CalendarTimer through NextRunProc
+## and use the core's bounds, throttling, and lifecycle controls. Job-level
+## onError requires async=true for every, cron, timer, and at.
+##
 ## Syntax: ``Year-Month-Day Hour:Minute:Second TimeZone``.
 ## Fractional seconds retain one-microsecond calendar resolution, but event-loop
 ## dispatch remains best-effort and normally has millisecond-scale accuracy.
+## Timer weekday and date restrictions use AND; cron's restricted day fields
+## use OR. Timer DST gaps are skipped and overlaps use the earlier instant.
 ## See the generated ``metronome/timers`` documentation for supported systemd
 ## forms and compatibility boundaries.
 ##

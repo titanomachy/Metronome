@@ -29,6 +29,12 @@
   Consolidated nominal cadence advancement after dispatch or throttling and
   clarified lifecycle/startup behavior in the README and NimDoc. Existing clock
   checks, polling, public APIs, and execution behavior are preserved.
+- Verified optional timer adapters and all four DSL commands for async and
+  thread-backed jobs through both entry macros. Added regressions for parameter
+  forwarding, compiler diagnostics, core-only compiler dependencies, retained
+  timer ownership, precise bounds, DST behavior, and distinct cron OR/calendar
+  AND day matching. Clarified timer integration in the README and NimDoc;
+  optional imports, public APIs, and the pinned timezone catalog are unchanged.
 
 ### Development and regression coverage
 

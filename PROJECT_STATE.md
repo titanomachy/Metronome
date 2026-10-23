@@ -3,9 +3,10 @@
 ## Schedule calculation refactor progress
 
 The baseline inventory, **Internal Architecture and Dependencies**,
-**Nominal Schedule Calculation**, **Jitter and Deadline Planning**, and
-**Execution and Lifecycle Integration** categories are complete. The next
-category is **Optional Modules and DSL Compatibility**. The execution checklist is
+**Nominal Schedule Calculation**, **Jitter and Deadline Planning**,
+**Execution and Lifecycle Integration**, and **Optional Modules and DSL
+Compatibility** categories are complete. The next category is **Deterministic
+Calculation Tests**. The execution checklist is
 `PLANS/PLAN-schedule-calculation-execution.md`; `PLANS/PLAN.md` is absent.
 The plan remains ignored local material under `PLANS/`.
 
@@ -52,8 +53,8 @@ Internal-architecture validation on 2026-10-23:
 - `nimble build`: attempted; no binary target, with the user-confirmed waiver
   described below. `git diff --check` passes.
 
-The dedicated calculation test matrix, optional-module/DSL verification, and
-final packaging/CI checks remain in their later categories.
+The dedicated calculation test matrix and final packaging/CI checks remain
+in their later categories; subsequent integration results are recorded below.
 Generated documentation, coverage reports/badge, caches, test binaries, and
 the local execution plan remain ignored and are not committed.
 
@@ -227,6 +228,73 @@ Only the execution/lifecycle checklist is completed here. Optional modules/DSL
 compatibility is next; no later category or dedicated suite was started.
 Generated docs, coverage reports/badge, caches, test binaries, and the local
 plan remain ignored and are not committed.
+
+## Optional modules and DSL compatibility
+
+Completed on 2026-10-23, starting from `d0f3b08` on a clean `development`
+branch. The existing optional adapters and macro expansion already satisfy this
+category's contracts. Source changes clarify those boundaries and public
+documentation; no execution logic, public type, dependency, or policy changes
+were needed.
+
+Durable boundaries and interfaces:
+
+- `metronome/timers` owns `CalendarTimer` and adapts it to `NextRunProc` with
+  one retained callback per beater. Both async and thread-backed constructors
+  preserve bounds, throttle validation, and core lifecycle/error rules. The
+  callback retains its parsed timer after the caller reassigns its timer or
+  leaves scope. Calendar data types, parsing, and evaluation remain in separate
+  optional modules; the core calculator receives only the callback.
+- Both `scheduler` and blocking `metronome` use the existing shared expansion
+  for `every`, `cron`, `at`, and `timer`, with both job modes. Interval fields
+  and jitter, cron fields and timezone, bounds, IDs, throttle, and async handlers
+  are forwarded unchanged. Thread jobs reject job-level `onError`.
+- The timer DSL resolves `newTimer` and `initTimerBeater` in the caller and
+  keeps its missing-import diagnostic. Importing only `metronome` includes the
+  scheduler, private calculator, and cron evaluator, without timer modules,
+  timezone modules, or the catalog. Compiler-generated dependencies, rather
+  than just symbol visibility or binary size, verify this boundary.
+- Timer adapters retain microseconds, the evaluation input's timezone, exact
+  future lower-bound inclusion, inclusive upper bounds, and exhaustion. They
+  preserve DST gap skipping, earlier-only overlap selection, and recurring
+  timezone rules after 2037. Cron's restricted day fields keep OR semantics;
+  timer weekday/date restrictions keep AND. Direct timezone conversion retains
+  its separate gap normalization and overlap rules.
+- The pinned IANA `2026c` catalog, updater, cron implementation, and calendar
+  model/parser/evaluator are unchanged. No runtime downloads are introduced.
+
+Eight added regressions extend the existing scheduler and timer suites.
+`tests/compiler_probe.nim` compiles disposable consumers with the same compiler
+as its importing suite, checking generated dependencies and 24 invalid DSL
+cases across both entry macros. Temporary sources live outside `tests/`, so
+the helper explicitly supplies source/thread settings and removes its scratch
+directory. Valid generated callbacks are exercised once without starting
+recurring fire loops; the blocking macro is checked without entering its loop.
+No dedicated calculator suite or later category was started.
+
+README, source NimDoc, AGENTS.md's test layout, and CHANGELOG.md describe the
+optional adapter and verified contracts. Existing examples remain accurate
+without code or output changes.
+
+Validation:
+
+- Baseline `nimble test`: 140 passing tests on Nim `2.2.12`.
+- Final `nimble test`: 148 passing tests on local Nim `2.2.12` and minimum
+  supported Nim `2.2.10`; focused scheduler/timer suites pass 16/26 tests.
+- `nimble coverage`: passes at 87.0% (1949/2241 lines), above the 80% minimum.
+- `nimble docs`: passes; inspected the generated root and timer adapter text,
+  and verified that timezone and documentation index pages remain present.
+- Unchanged timer and named-timezone cron examples compile and run with their
+  expected winter/summer UTC/local timestamps and precise calendar target.
+- `nimble build`: attempted, returns "Nothing to build"; retain the previously
+  confirmed source-library waiver, using tests/examples for compilation.
+- `git diff --check`: passes. Validation uses installed compilers, cached
+  package metadata, and isolated writable Nimble/compiler directories under
+  `/tmp`; minimum-version test binaries use a separate output directory.
+
+Generated docs, coverage reports/badge, caches, test binaries, and the local
+execution plan remain ignored and are not committed. Only the optional-module
+and DSL category is completed here; deterministic calculation tests are next.
 
 ## Baseline snapshot
 

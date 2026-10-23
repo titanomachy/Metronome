@@ -168,12 +168,13 @@ Compile applications that import `metronome` with `--threads:on`:
 nim c --threads:on your_app.nim
 ```
 
-An `every`, `cron`, or `at` block without `async=true` becomes a thread-backed
-job. Its body must satisfy Nim's thread and GC-safety rules, and blocking work
-inside it blocks only that worker thread. A block with `async=true` runs on the
-async event loop; use `await` for long-running work because blocking calls in
-that body stall the event loop. Async job failures can be tracked and handled;
-exceptions from thread-backed jobs are not propagated through job futures.
+An `every`, `cron`, `timer`, or `at` block without `async=true` becomes a
+thread-backed job. Its body must satisfy Nim's thread and GC-safety rules, and
+blocking work inside it blocks only that worker thread. A block with
+`async=true` runs on the async event loop; use `await` for long-running work
+because blocking calls in that body stall the event loop. Async job failures
+can be tracked and handled; exceptions from thread-backed jobs are not
+propagated through job futures.
 
 The repository's tests already enable threads through `tests/config.nims`, but
 applications and ad hoc example builds should pass the flag explicitly.
@@ -371,6 +372,13 @@ scheduler timerSched:
 its public APIs, such as `namedTimezone`, `timezoneNames`, or
 `timezoneDatabaseVersion`, from application code.
 
+Both `scheduler` and `metronome` support async and thread-backed timer jobs.
+The DSL resolves the timer API from your imports and reports a missing
+`metronome/timers` import at compile time. Direct `initTimerBeater` overloads
+adapt a parsed `CalendarTimer` to the core's custom-schedule callback, retaining
+the timer for the beater's lifetime. They share the core's bounds, throttling,
+and lifecycle controls; job-level `onError` is available only with `async=true`.
+
 The optional weekday prefix, `*`, comma-separated lists, `..` ranges, `/`
 repetitions, `~` last-day forms, and the standard `minutely` through
 `semiannually` shorthands are supported. A timer may also combine repeated
@@ -382,7 +390,8 @@ let reporting = newTimer(["daily UTC", "Mon *-*-* 09:00:00 Europe/Amsterdam"])
 
 Explicit `UTC` and exact embedded IANA names are resolved once. If the suffix
 is omitted, the input `DateTime` timezone is used. Weekday and date constraints
-must both match. Nonexistent wall-clock occurrences in a DST gap are skipped;
+must both match (AND); cron uses OR when both day fields are restricted.
+Nonexistent wall-clock occurrences in a DST gap are skipped;
 an overlap uses its earlier occurrence.
 
 The seconds field accepts fractions, such as

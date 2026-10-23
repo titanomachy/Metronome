@@ -1085,6 +1085,8 @@ proc parseTimer(call: NimNode): tuple[
   )
 
 proc processTimer(call: NimNode): NimNode =
+  # Resolve the optional adapter in the caller; importing it here would pull
+  # calendar parsing and the IANA catalog into every core consumer.
   let (asyncProc, id, throttleNum, procBody, onCalendar, startTime,
     endTime, errorHandler) = parseTimer(call)
   if asyncProc:

@@ -76,6 +76,8 @@ proc getNext*(
       result = candidate
 
 proc timerNextRun(timer: CalendarTimer): NextRunProc =
+  # Retain the parsed timer in one callback per beater. Calendar parsing and
+  # evaluation stay here; the core calculator sees only NextRunProc.
   result = proc (current: DateTime): Option[DateTime] {.
       closure, gcsafe, raises: []
     .} =
@@ -91,6 +93,10 @@ proc initTimerBeater*(
   errorHandler: JobErrorHandler = nil,
 ): Beater =
   ## Initialize an async beater driven by a parsed calendar timer.
+  ## Retains the timer through a custom-schedule callback. A future startTime
+  ## can match exactly; endTime is inclusive. Timer evaluation retains
+  ## microseconds and its input timezone. Bounds, throttling, lifecycle, and
+  ## error handling follow the core custom-beater API.
   initBeater(
     nextRunProc = timer.timerNextRun(),
     asyncProc = asyncProc,
@@ -111,6 +117,9 @@ proc initTimerBeater*(
   errorHandler: JobErrorHandler = nil,
 ): Beater =
   ## Initialize a thread-backed beater driven by a parsed calendar timer.
+  ## Uses the same retained timer and calculation rules as the async overload.
+  ## The job must satisfy Nim's thread/GC-safety rules; a non-nil errorHandler
+  ## is rejected, as for other thread-backed beaters.
   initBeater(
     nextRunProc = timer.timerNextRun(),
     threadProc = threadProc,

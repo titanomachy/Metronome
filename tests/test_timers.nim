@@ -1,4 +1,5 @@
 import std/[asyncdispatch, options, strutils, times, unittest]
+import std/importutils
 
 import metronome
 import metronome/timers
@@ -8,6 +9,9 @@ proc noop(): Future[void] {.async.} =
   discard
 
 proc threadNoop() {.thread.} =
+  discard
+
+proc timerErrorHandler(future: Future[void]) {.gcsafe.} =
   discard
 
 proc utcDate(
@@ -242,3 +246,140 @@ suite "systemd-style calendar timers":
 
   test "expands async and thread timer DSL jobs":
     check timerDslScheduler.listJobs() == @["async-timer", "thread-timer"]
+
+  test "timer adapters retain parsed schedules precision zones and inclusive bounds":
+    let callerZone = namedTimezone("America/Chicago")
+    let start = utcDate(2026, mJan, 1, 12, 0, 0, 123_456).inZone(callerZone)
+    let finish = start + initDuration(seconds=1)
+    let query = start - initDuration(seconds=1)
+    proc makeBeater(threadBacked: bool): Beater =
+      var timer = newTimer([
+        "2026-01-01 12:00:00.123456 UTC",
+        "2026-01-01 12:00:01.123456 UTC"
+      ])
+      if threadBacked:
+        result = initTimerBeater(timer, threadNoop, startTime=some(start),
+          endTime=some(finish), id="owned-thread-timer", throttleNum=2)
+      else:
+        result = initTimerBeater(timer, noop, startTime=some(start),
+          endTime=some(finish), id="owned-async-timer", throttleNum=2,
+          errorHandler=timerErrorHandler)
+      # The callback must retain its timer after reassignment and scope exit.
+      timer = newTimer("daily UTC")
+
+    for threadBacked in [false, true]:
+      let beater = makeBeater(threadBacked)
+      check beater.kind == bkCustom
+      let first = beater.fireTime(none(DateTime), query).get()
+      let last = beater.fireTime(some(first), first).get()
+      check first == start
+      check last == finish
+      check first.nanosecond == 123_456_000
+      check last.nanosecond == 123_456_000
+      check first.timezone == callerZone
+      check last.timezone == callerZone
+      check beater.fireTime(some(last), last).isNone
+      check beater.nextRun.isNone
+      check beater.lastRun.isNone
+      check beater.runningCount == 0
+
+      let excluded = if threadBacked:
+          initTimerBeater(newTimer("2026-01-01 12:00:00.123456 UTC"),
+            threadNoop, startTime=some(query),
+            endTime=some(start - initDuration(nanoseconds=1)))
+        else:
+          initTimerBeater(newTimer("2026-01-01 12:00:00.123456 UTC"),
+            noop, startTime=some(query),
+            endTime=some(start - initDuration(nanoseconds=1)))
+      check excluded.fireTime(none(DateTime), query).isNone
+
+    expect ValueError:
+      discard initTimerBeater(newTimer("daily UTC"), noop, throttleNum=0)
+    expect ValueError:
+      discard initTimerBeater(newTimer("daily UTC"), threadNoop, throttleNum=0)
+    expect ValueError:
+      discard initTimerBeater(newTimer("daily UTC"), threadNoop,
+        errorHandler=timerErrorHandler)
+
+  test "timer adapters preserve DST gap overlap and recurring-rule behavior":
+    let timer = newTimer("*-*-* 02:30:00 Europe/Amsterdam")
+    let start = utcDate(2026, mJan, 1, 0, 0, 0)
+    for beater in [initTimerBeater(timer, noop, startTime=some(start)),
+        initTimerBeater(timer, threadNoop, startTime=some(start))]:
+      for (query, expected) in [
+        (utcDate(2026, mMar, 29, 0, 0, 0), utcDate(2026, mMar, 30, 0, 30, 0)),
+        (utcDate(2026, mOct, 24, 23, 0, 0), utcDate(2026, mOct, 25, 0, 30, 0)),
+        (utcDate(2026, mOct, 25, 0, 30, 0), utcDate(2026, mOct, 26, 1, 30, 0)),
+        (utcDate(2040, mJan, 1, 0, 0, 0), utcDate(2040, mJan, 1, 1, 30, 0)),
+        (utcDate(2040, mJul, 1, 0, 0, 0), utcDate(2040, mJul, 1, 0, 30, 0))
+      ]:
+        check beater.fireTime(none(DateTime), query).get() == expected
+
+  test "cron OR and timer AND day constraints stay distinct through adapters":
+    let current = utcDate(2026, mJul, 31, 23, 0, 0)
+    let cron = newCron(day_of_month="1", day_of_week="Mon-Fri", hour="2", minute="0")
+    let timer = newTimer("Mon..Fri *-*-01 02:00:00 UTC")
+    for beater in [initBeater(cron, noop, startTime=some(current)),
+        initBeater(cron, threadNoop, startTime=some(current))]:
+      # August 1 is Saturday: day-of-month alone is sufficient for cron.
+      check beater.fireTime(none(DateTime), current).get() ==
+        utcDate(2026, mAug, 1, 2, 0, 0)
+    for beater in [initTimerBeater(timer, noop, startTime=some(current)),
+        initTimerBeater(timer, threadNoop, startTime=some(current))]:
+      check beater.fireTime(none(DateTime), current).get() ==
+        utcDate(2026, mSep, 1, 2, 0, 0)
+
+  test "timer DSL forwards repeated expressions bounds throttle and handlers":
+    privateAccess(Scheduler)
+    privateAccess(Beater)
+    privateAccess(Throttler)
+    let start = utcDate(2026, mJan, 1, 12, 0, 0, 123_456)
+    let finish = start + initDuration(seconds=1)
+    let expressions = ["2026-01-01 12:00:00.123456 UTC",
+      "2026-01-01 12:00:01.123456 UTC"]
+    scheduler boundedTimers:
+      timer(onCalendar=expressions, startTime=start, endTime=finish,
+          id="async", throttle=2, async=true, onError=timerErrorHandler):
+        await noop()
+      timer(onCalendar=expressions, startTime=start, endTime=finish,
+          id="thread", throttle=2):
+        threadNoop()
+
+    check boundedTimers.listJobs == @["async", "thread"]
+    for index, beater in boundedTimers.beaters:
+      check beater.throttler.num == 2
+      check (beater.errorHandler != nil) == (index == 0)
+      check beater.fireTime(none(DateTime), start - initDuration(seconds=1)).get() == start
+      check beater.fireTime(none(DateTime), start).get() == finish
+      check beater.fireTime(none(DateTime), finish).isNone
+      waitFor beater.beaterProc()
+
+  test "blocking entry macro expands every schedule kind in both job modes":
+    # Semantically check the blocking entry point without entering runForever.
+    check compiles(block:
+      metronome:
+        every(seconds=1, id="every-async", async=true,
+            jitter=initTimeInterval(milliseconds=1), startTime=now(),
+            endTime=now(), throttle=2, onError=timerErrorHandler):
+          await noop()
+        every(milliseconds=1, id="every-thread", throttle=2):
+          threadNoop()
+        cron(year="2026", month="1", day_of_month="1", day_of_week="Thu",
+            hour="12", minute="0", timezone=utc(), startTime=now(),
+            endTime=now(), throttle=2, id="cron-async", async=true,
+            onError=timerErrorHandler):
+          await noop()
+        cron(minute="*/1", timezone=utc(), id="cron-thread"):
+          threadNoop()
+        at(time=now(), id="at-async", throttle=2, async=true,
+            onError=timerErrorHandler):
+          await noop()
+        at(time=now(), id="at-thread", throttle=2):
+          threadNoop()
+        timer(onCalendar="daily UTC", startTime=now(), endTime=now(),
+            id="timer-async", throttle=2, async=true, onError=timerErrorHandler):
+          await noop()
+        timer(onCalendar=["daily UTC", "weekly Europe/Amsterdam"],
+            startTime=now(), endTime=now(), id="timer-thread", throttle=2):
+          threadNoop()
+    )

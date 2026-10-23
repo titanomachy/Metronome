@@ -4,6 +4,7 @@ import times, options, asyncdispatch, strutils
 import std/importutils
 import metronome
 import metronome/scheduler as schedulerApi
+import ./compiler_probe
 
 proc noop(): Future[void] {.async.} = discard
 
@@ -203,6 +204,133 @@ test "Scheduler macro supports interval jitter":
       await noop()
 
   check testJitter.listJobs == @["jittered"]
+
+test "Scheduler DSL forwards interval cron and one-shot parameters in both job modes":
+  privateAccess(Scheduler)
+  privateAccess(Beater)
+  privateAccess(Throttler)
+  let start = dateTime(2026, mJan, 1, 12, 1, 0, 0, utc())
+  let finish = start + initDuration(minutes=2)
+  let interval = initTimeInterval(
+    years=1, months=2, weeks=3, days=4, hours=5, minutes=6,
+    seconds=7, milliseconds=8
+  )
+  let jitter = initTimeInterval(milliseconds=9)
+  scheduler compatibility:
+    every(years=1, months=2, weeks=3, days=4, hours=5, minutes=6,
+        seconds=7, milliseconds=8, jitter=jitter, startTime=start,
+        endTime=finish, throttle=2, id="interval-async", async=true,
+        onError=macroErrorHandler):
+      macroGcState.calls.inc
+      await noop()
+    every(years=1, months=2, weeks=3, days=4, hours=5, minutes=6,
+        seconds=7, milliseconds=8, jitter=jitter, startTime=start,
+        endTime=finish, throttle=2, id="interval-thread"):
+      syncNoop()
+    cron(year="2026", month="1", day_of_month="1", day_of_week="Thu",
+        hour="12", minute="1,2,3", timezone=utc(), startTime=start,
+        endTime=finish, throttle=2, id="cron-async", async=true,
+        onError=macroErrorHandler):
+      macroGcState.calls.inc
+      await noop()
+    cron(year="2026", month="1", day_of_month="1", day_of_week="Thu",
+        hour="12", minute="1,2,3", timezone=utc(), startTime=start,
+        endTime=finish, throttle=2, id="cron-thread"):
+      syncNoop()
+    at(time=start, throttle=2, id="once-async", async=true,
+        onError=macroErrorHandler):
+      macroGcState.calls.inc
+      await noop()
+    at(time=start, throttle=2, id="once-thread"):
+      syncNoop()
+
+  check compatibility.listJobs == @[
+    "interval-async", "interval-thread", "cron-async", "cron-thread",
+    "once-async", "once-thread"
+  ]
+  let before = macroGcState.calls
+  for index, beater in compatibility.beaters:
+    check beater.throttler.num == 2
+    check beater.startTime == start
+    check (beater.errorHandler != nil) == (index mod 2 == 0)
+    if beater.kind != bkOnce:
+      check beater.endTime.get() == finish
+    case beater.kind
+    of bkInterval:
+      check beater.interval == interval
+      check beater.jitter == jitter
+    of bkCron:
+      check beater.timezone.get() == utc()
+      let expected = newCron(year="2026", month="1", day_of_month="1",
+        day_of_week="Thu", hour="12", minute="1,2,3")
+      for query in [start - initDuration(minutes=1), start, finish]:
+        let candidate = expected.getNext(query)
+        let bounded = if candidate.isSome and candidate.get() > finish:
+            none(DateTime)
+          else: candidate
+        check beater.fireTime(none(DateTime), query) == bounded
+    of bkOnce:
+      check beater.fireTime(none(DateTime), finish).get() == start
+    else:
+      check false
+    # Execute each generated callback once without starting recurring fire loops.
+    waitFor beater.beaterProc()
+  check macroGcState.calls == before + 3
+
+test "Core-only consumers exclude timer and named timezone dependencies":
+  let checked = checkConsumer("""
+import metronome
+static:
+  doAssert not declared(CalendarTimer)
+  doAssert not declared(newTimer)
+  doAssert not declared(namedTimezone)
+discard newSettings()
+""", dependencies=true)
+  checkpoint checked.output
+  check checked.exitCode == 0
+  let dependencies = checked.dependencies.replace('\\', '/')
+  check dependencies.contains("/metronome/scheduler.nim")
+  check dependencies.contains("/metronome/private/schedule.nim")
+  check dependencies.contains("/metronome/cron/cron.nim")
+  check not dependencies.contains("/metronome/timers")
+  check not dependencies.contains("/metronome/timezones")
+
+test "Both DSL entry macros preserve useful compiler diagnostics":
+  for entry in ["scheduler diagnosticScheduler:", "metronome:"]:
+    for asyncValue in ["false", "true"]:
+      let source = "import metronome\n" & entry &
+        "\n  timer(onCalendar=\"daily UTC\", async=" & asyncValue &
+        "):\n    discard\n"
+      let checked = checkConsumer(source)
+      checkpoint source & checked.output
+      check checked.exitCode != 0
+      check checked.output.contains("timer(...) requires `import metronome/timers`")
+
+    for (call, diagnostic) in [
+      ("every(seconds=1, onError=handler)",
+        "`onError` is only supported for async interval jobs"),
+      ("cron(onError=handler)",
+        "`onError` is only supported for async cron jobs"),
+      ("at(time=now(), onError=handler)",
+        "`onError` is only supported for async one-shot jobs"),
+      ("timer(onCalendar=\"daily UTC\", onError=handler)",
+        "`onError` is only supported for async timer jobs"),
+      ("every(unexpected=1)", "unexpected parameter for `every`: unexpected"),
+      ("cron(unexpected=1)", "unexpected parameter for `cron`: unexpected"),
+      ("at(time=now(), unexpected=1)", "unexpected parameter for `at`: unexpected"),
+      ("timer(onCalendar=\"daily UTC\", unexpected=1)",
+        "unexpected parameter for `timer`: unexpected"),
+      ("at(async=true)", "missing required parameter for `at`: time"),
+      ("timer(async=true)", "missing required parameter for `timer`: onCalendar")
+    ]:
+      let source = "import std/[asyncdispatch, times]\n" &
+        "import metronome\nimport metronome/timers\n" &
+        "proc handler(fut: Future[void]) {.gcsafe.} = discard\n" &
+        entry & "\n  " & call & ":\n    discard\n"
+      let checked = checkConsumer(source)
+      checkpoint source & checked.output
+      check checked.exitCode != 0
+      check checked.output.contains(diagnostic)
 
 test "Scheduler macro supports one-shot jobs":
   macroOnceCalls = 0
