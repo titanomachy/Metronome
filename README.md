@@ -787,8 +787,10 @@ nimble test
 fixed dates and explicit inputs, without job futures or an event loop. Run it
 alone with `nim c -r tests/test_schedule_calculation.nim`. Beater tests retain
 public calculation compatibility and controlled jitter checks alongside
-pause/resume, active-job completion, throttling, and failure handling. Scheduler
-tests also verify startup and callback safety. [PROJECT_STATE.md](PROJECT_STATE.md)
+published-deadline waiting, pause/resume, active-job completion, throttling, and
+failure handling. Scheduler tests also execute generated async callbacks using
+global GC-managed state and verify startup and failure reporting after stopping.
+[PROJECT_STATE.md](PROJECT_STATE.md)
 records the current calculation and execution contracts for maintainers.
 
 ### Code Coverage

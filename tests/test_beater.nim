@@ -38,7 +38,6 @@ proc fixedTimezone(name: string, offset: int): Timezone =
 
 var beaterHandlerCalls = 0
 var fallbackHandlerCalls = 0
-var pauseLaunches = 0
 var onceLaunches = 0
 
 proc beaterHandler(fut: Future[void]) {.gcsafe.} =
@@ -48,9 +47,6 @@ proc beaterHandler(fut: Future[void]) {.gcsafe.} =
 proc fallbackHandler(fut: Future[void]) {.gcsafe.} =
   discard fut.readError()
   fallbackHandlerCalls.inc
-
-proc countedAsync(): Future[void] {.async.} =
-  pauseLaunches.inc
 
 proc countedOnce(): Future[void] {.async.} =
   onceLaunches.inc
@@ -277,6 +273,47 @@ test "Beater deadline planning | launches and throttled occurrences retain nomin
     check beater.lastRun.isSome == not throttle
     blocker.complete()
 
+test "Published jittered deadlines govern waiting and retain nominal interval cadence":
+  privateAccess(Beater)
+  proc main() =
+    let nominal = now() + initDuration(milliseconds=20)
+    let interval = initTimeInterval(hours=1)
+    var expectedRand = initRand(1)
+    let firstOffset = expectedRand.rand(100)
+    require firstOffset > 0
+    let firstDeadline = nominal + initDuration(milliseconds=firstOffset)
+    let secondDeadline = nominal + interval +
+      initDuration(milliseconds=expectedRand.rand(100))
+    let launched = newFuture[void]("jittered launch signal")
+    var launchTime, pendingAtLaunch: Option[DateTime]
+    var beater: Beater
+    let job: BeaterAsyncProc = proc(): Future[void] {.async.} =
+      launchTime = some(now())
+      pendingAtLaunch = beater.nextRun
+      launched.complete()
+    beater = initBeater(interval, job, startTime=some(nominal),
+      jitter=initTimeInterval(milliseconds=100))
+    # Preserve the intended first occurrence even if setup is delayed by load.
+    beater.resumeTime = some(nominal - interval)
+    beater.jitterRand = initRand(1)
+    let firing = beater.fire()
+    defer:
+      beater.stop()
+      waitFor firing
+      waitFor sleepAsync(0)
+
+    # fire() may already have launched if the process was descheduled.
+    if not launched.finished:
+      check beater.nextRun == some(firstDeadline)
+    require waitFor withTimeout(launched, 1000)
+    check pendingAtLaunch == some(firstDeadline)
+    check launchTime.get() >= firstDeadline
+    check beater.lastRun.get() >= launchTime.get()
+    check beater.nextRun == some(secondDeadline)
+    check beater.jitterRand == expectedRand
+
+  main()
+
 test "Beater.fireTime | non-interval schedules do not consume jitter randomness":
   privateAccess(Beater)
   let current = dateTime(2026, mJan, 1, 12, 0, 0, 0, utc())
@@ -480,21 +517,38 @@ test "Beater calculation exhaustion clears nextRun without stopping or launching
     check beater.state == bsRunning
 
 test "Custom Beater does not intentionally launch before a sub-millisecond deadline":
-  proc main(): bool =
-    let target = now() + initDuration(microseconds=500)
+  proc main() =
+    var target, launched: Option[DateTime]
+    var queries, launches: int
     let callback: NextRunProc = proc(current: DateTime): Option[DateTime] {.
         gcsafe, raises: []
       .} =
-      if current < target: some(target) else: none(DateTime)
-    var launched = target - initDuration(seconds=1)
+      queries.inc
+      if queries == 1:
+        # Set the target at calculation time, so constructor/setup latency
+        # cannot exhaust the callback before its first occurrence is planned.
+        target = some(current + initDuration(microseconds=500))
+        target
+      else:
+        none(DateTime)
     let job: BeaterAsyncProc = proc(): Future[void] {.async.} =
-      launched = now()
+      launches.inc
+      launched = some(now())
     let beater = initBeater(callback, job)
+    let firing = beater.fire()
+    defer:
+      beater.stop()
+      waitFor firing
+      waitFor sleepAsync(0)
 
-    waitFor beater.fire()
-    result = launched >= target
+    require waitFor withTimeout(firing, 1000)
+    check queries == 2
+    check launches == 1
+    require launched.isSome
+    check launched.get() >= target.get()
+    check beater.nextRun.isNone
 
-  check main()
+  main()
 
 test "Throttler rejects invalid limits":
   expect ValueError:
@@ -624,9 +678,8 @@ test "Beater.pause clears pending next run":
       id="pausable"
     )
     let fut = beater.fire()
-
-    while beater.nextRun.isNone:
-      await sleepAsync(10)
+    defer: beater.stop()
+    check beater.nextRun.isSome
 
     beater.pause()
     result = beater.state == bsPaused and beater.nextRun.isNone
@@ -637,60 +690,66 @@ test "Beater.pause clears pending next run":
   check waitFor(main())
 
 test "Beater.resume skips intervals missed while paused":
-  pauseLaunches = 0
-
+  privateAccess(Beater)
   proc main(): Future[bool] {.async.} =
+    var launches: seq[DateTime]
+    let resumedLaunch = newFuture[void]("first launch after resume")
+    let job: BeaterAsyncProc = proc(): Future[void] {.async.} =
+      launches.add(now())
+      if launches.len == 2:
+        resumedLaunch.complete()
     let current = now()
     let beater = initBeater(
-      initTimeInterval(milliseconds=20),
-      countedAsync,
-      startTime=some(current),
-      endTime=some(current + initTimeInterval(milliseconds=250)),
-      id="skip-missed"
+      initTimeInterval(milliseconds=20), job,
+      startTime=some(current), id="skip-missed"
     )
+    beater.resumeTime = some(current - initDuration(milliseconds=20))
     let fut = beater.fire()
-
-    while pauseLaunches == 0:
-      await sleepAsync(5)
+    defer: beater.stop()
+    check launches.len == 1
 
     beater.pause()
-    let launchesAtPause = pauseLaunches
     await sleepAsync(90)
+    check launches.len == 1
 
+    let beforeResume = now()
     beater.resume()
-    await sleepAsync(10)
-    let launchesAfterResume = pauseLaunches
+    result = await withTimeout(resumedLaunch, 1000)
 
     beater.stop()
     await fut
-
-    result = launchesAtPause == launchesAfterResume
+    for actual in launches[1..^1]:
+      check actual >= beforeResume + initDuration(milliseconds=20)
 
   check waitFor(main())
 
 test "Beater.resume before pending deadline recomputes next run":
-  pauseLaunches = 0
-
   proc main(): Future[bool] {.async.} =
     let current = now()
+    let original = current + initDuration(minutes=10)
     let beater = initBeater(
-      initTimeInterval(milliseconds=120),
-      countedAsync,
-      startTime=some(current + initTimeInterval(milliseconds=120)),
-      endTime=some(current + initTimeInterval(milliseconds=350)),
+      initTimeInterval(hours=1), dummyAsync, startTime=some(original),
       id="resume-recomputes"
     )
     let fut = beater.fire()
-
-    while beater.nextRun.isNone:
-      await sleepAsync(5)
+    defer: beater.stop()
+    check beater.nextRun.isSome
 
     beater.pause()
     await sleepAsync(20)
+    let beforeResume = now()
     beater.resume()
-    await sleepAsync(70)
-
-    result = pauseLaunches == 0
+    let afterResume = now()
+    # Poll only for the recomputed pending deadline, never for a launch.
+    for attempt in 0..<200:
+      if beater.nextRun.isSome:
+        break
+      await sleepAsync(5)
+    result = beater.lastRun.isNone and beater.nextRun.isSome
+    if beater.nextRun.isSome:
+      check beater.nextRun.get() != original
+      check beater.nextRun.get() >= beforeResume + initDuration(hours=1)
+      check beater.nextRun.get() <= afterResume + initDuration(hours=1)
 
     beater.stop()
     await fut
@@ -708,16 +767,15 @@ test "Beater one-shot resumes pending run":
       id="one-shot"
     )
     let fut = beater.fire()
-
-    while beater.nextRun.isNone:
-      await sleepAsync(5)
+    defer: beater.stop()
+    check beater.nextRun.isSome
 
     beater.pause()
-    await sleepAsync(20)
     beater.resume()
-    await sleepAsync(120)
-
-    result = onceLaunches == 1 and beater.state == bsStopped
+    result = await withTimeout(fut, 1000)
+    check onceLaunches == 1
+    check beater.state == bsStopped
+    check beater.lastRun.get() >= current + initDuration(milliseconds=80)
 
     beater.stop()
     await fut
@@ -882,6 +940,46 @@ test "Pause and stop retain an active async job and its actual launch timestamp"
     check launches == 1
 
   waitFor main()
+
+test "Active async jobs finish while paused without launching an overdue occurrence":
+  privateAccess(Beater)
+  proc main() =
+    let active = newFuture[void]("active job completing while paused")
+    var launches = 0
+    let job: BeaterAsyncProc = proc(): Future[void] =
+      launches.inc
+      active
+    let nominal = now()
+    let beater = initBeater(initTimeInterval(milliseconds=10), job,
+      startTime=some(nominal))
+    beater.resumeTime = some(nominal - initDuration(milliseconds=10))
+    let firing = beater.fire()
+    defer:
+      beater.stop()
+      waitFor firing
+      if not active.finished:
+        active.complete()
+      waitFor sleepAsync(0)
+
+    check launches == 1
+    check beater.runningCount == 1
+    let actual = beater.lastRun
+    beater.pause()
+    check not active.finished
+    check beater.nextRun.isNone
+    active.complete()
+    # Cross several nominal occurrences while allowing completion tracking
+    # and the invalidated wait to run. There is no upper latency assertion.
+    waitFor sleepAsync(30)
+    check now() >= nominal + initDuration(milliseconds=10)
+    check beater.state == bsPaused
+    check beater.runningCount == 0
+    check beater.nextRun.isNone
+    check beater.lastRun == actual
+    check launches == 1
+    check not firing.finished
+
+  main()
 
 test "Throttled occurrences retain capacity limits and create no deferred jobs":
   privateAccess(Beater)

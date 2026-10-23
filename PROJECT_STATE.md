@@ -5,9 +5,9 @@
 The baseline inventory, **Internal Architecture and Dependencies**,
 **Nominal Schedule Calculation**, **Jitter and Deadline Planning**,
 **Execution and Lifecycle Integration**, **Optional Modules and DSL
-Compatibility**, and **Deterministic Calculation Tests** categories are complete.
-The next category is **Execution and Public API Regression Tests**. The execution
-checklist is
+Compatibility**, **Deterministic Calculation Tests**, and **Execution and Public
+API Regression Tests** categories are complete. The next category is **README
+and Source Documentation**. The execution checklist is
 `PLANS/PLAN-schedule-calculation-execution.md`; `PLANS/PLAN.md` is absent.
 The plan remains ignored local material under `PLANS/`.
 
@@ -358,6 +358,67 @@ Validation:
 Only the deterministic-calculation category is completed here. Execution/public
 API regression review is next. Generated docs, coverage reports/badge, caches,
 test binaries, and the local execution plan remain ignored and are not committed.
+
+## Execution and public API regression coverage
+
+Completed on 2026-10-23, starting from `7dc4201` on a clean `development`
+branch. Auditing the category found no production changes were needed. Three
+new regressions and strengthened existing fixtures verify execution across the
+private calculation boundary without changing public APIs or runtime policies.
+
+Durable execution and test contracts:
+
+- A launch observes the same jittered deadline previously published as
+  `nextRun`, and its actual timestamp is at or after that deadline. The next
+  interval is calculated from the prior nominal occurrence, with one new RNG
+  sample. The live regression controls the existing private RNG, keeps both
+  timestamps observable, and checks cadence without an upper latency assertion.
+- The positive 500-microsecond target is created during the first custom
+  calculation, rather than before construction. Exactly one launch must occur
+  at or after it, followed by exhaustion. Constructor/setup latency cannot make
+  the fixture skip its only occurrence.
+- An active async job may complete while its beater remains paused; tracking
+  settles to zero without launching overdue intervals or changing `lastRun`.
+  `stopAll` ends pending fire loops while leaving an active future intact. A
+  subsequent future failure still updates scheduler error introspection and
+  invokes the configured fallback handler, with lifecycle state still stopped.
+- Pause/resume fixtures avoid unbounded launch/deadline polling. Missed-interval
+  checks compare actual launches against resume time plus one interval;
+  before-deadline checks inspect the recomputed pending deadline instead of
+  relying on a short interval in which nothing should launch. Live waits are
+  bounded and started loops/jobs are stopped or completed during cleanup.
+- The async GC-state regression executes a generated DSL callback through
+  scheduler startup. Type/import compatibility, mutable fields, constructors,
+  all DSL commands and job modes, IDs, startup, synchronous/nil/async failures,
+  handler precedence/failures, throttling, and worker completion remain covered.
+  Timer adapters need no ownership/import changes. Existing timer, cron, and
+  timezone suites retain precision, winter/summer offsets, DST gaps/overlaps,
+  recurring rules after 2037, and host-independent fixtures.
+
+README's testing description and CHANGELOG.md record this regression coverage.
+Existing public NimDoc and examples remain accurate without source or output
+changes. No new test runtime, dependency, public clock/RNG interface, compiler
+flags, timezone data, package version, or scheduling policy was introduced.
+
+Validation:
+
+- Baseline `nimble test`: 151 passing tests on Nim `2.2.12`.
+- Final `nimble test`: 154 passing tests on local Nim `2.2.12` and minimum
+  supported Nim `2.2.10`; focused beater/scheduler suites pass 43/17 tests.
+- `nimble coverage`: passes at 87.0% (1950/2242 lines), above the 80% minimum.
+  All six suites run with instrumentation and the existing source filter.
+- `nimble docs`: passes; root, scheduler, timezone, timer, and index pages are
+  present, with the public `NextRunProc` symbol retained.
+- `nimble build`: attempted, returns "Nothing to build"; retain the previously
+  confirmed source-library waiver, using the suites for compilation validation.
+- `git diff --check`: passes. Installed compilers and cached Nimble metadata
+  use writable temporary caches without network access. Tests retain the
+  thread/path settings in `tests/config.nims`; minimum-version binaries have
+  a separate temporary output directory.
+
+Only the execution/public API regression category is completed here. The README
+and source-documentation audit is next. Generated docs, coverage reports/badge,
+caches, binaries, and the local plan remain ignored and are not committed.
 
 ## Baseline snapshot
 

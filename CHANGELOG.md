@@ -38,6 +38,11 @@
 
 ### Development and regression coverage
 
+- Added execution regressions for waiting on published jittered deadlines,
+  nominal cadence after dispatch, active async completion while paused, and
+  delayed failure reporting after `stopAll`. Strengthened sub-millisecond and
+  generated async DSL callback checks, bounded lifecycle fixtures, and cleaned
+  up scheduler test loops. Public APIs and scheduling behavior are unchanged.
 - Added a direct deterministic calculator suite for interval alignment and
   calendar arithmetic, cron zones, precise custom/one-shot targets, exhaustion,
   and inclusive bounds. Moved arithmetic cases from the beater suite while

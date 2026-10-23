@@ -66,6 +66,7 @@ test "Public scheduler types remain compatible through both imports":
 
 
 test "endTime":
+  privateAccess(Scheduler)
 
   scheduler testEndTime:
     every(seconds=1, id="sync tick", endTime=now()+initDuration(seconds=2)):
@@ -79,21 +80,23 @@ test "endTime":
     return true
 
   check (waitFor(main()))
+  testEndTime.stopAll()
+  for firing in testEndTime.futures:
+    waitFor firing
 
 test "Async scheduler jobs can access global GC-managed state":
   scheduler testGlobalGcState:
-    every(seconds=1, id="global-gc-state", async=true):
+    at(time=dateTime(2000, mJan, 1, 0, 0, 0, 0, utc()),
+        id="global-gc-state", async=true):
       macroGcState.calls.inc
 
   check testGlobalGcState.listJobs == @["global-gc-state"]
   let before = macroGcState.calls
-  let job: BeaterAsyncProc = proc(): Future[void] {.async.} =
-    macroGcState.calls.inc
-  let beater = initBeater(dateTime(2000, mJan, 1, 0, 0, 0, 0, utc()), job)
-  waitFor beater.fire()
+  waitFor testGlobalGcState.start()
   waitFor sleepAsync(0)
   check macroGcState.calls == before + 1
-  check beater.runningCount == 0
+  check testGlobalGcState.runningCount("global-gc-state") == 0
+  check testGlobalGcState.jobState("global-gc-state").get() == bsStopped
 
 test "Scheduler lists and controls registered jobs":
   let scheduler = initScheduler(newSettings())
@@ -429,3 +432,47 @@ test "Scheduler fallback handler records async failures after startup returns":
   check scheduler.lastError("failure").msg.contains("boom")
   check scheduler.lastErrorAt("failure").isSome
   check scheduler.runningCount("failure") == 0
+
+test "Scheduler observes active job failure after stopAll finishes fire loops":
+  privateAccess(Scheduler)
+  privateAccess(Beater)
+  proc main() =
+    macroErrorHandlerCalls = 0
+    let active = newFuture[void]("failure after scheduler stop")
+    let scheduler = initScheduler(newSettings(errorHandler=macroErrorHandler))
+    let nominal = now()
+    let beater = initBeater(initTimeInterval(hours=1),
+      proc(): Future[void] = active, startTime=some(nominal),
+      id="delayed-failure")
+    beater.resumeTime = some(nominal - initDuration(hours=1))
+    scheduler.register(beater)
+    defer:
+      scheduler.stopAll()
+      if not active.finished:
+        active.complete()
+      waitFor sleepAsync(0)
+
+    waitFor scheduler.start()
+    check scheduler.runningCount("delayed-failure") == 1
+    check scheduler.jobState("delayed-failure").get() == bsRunning
+    check scheduler.nextRun("delayed-failure").isSome
+    check not scheduler.futures[0].finished
+    let actual = scheduler.lastRun("delayed-failure")
+    scheduler.stopAll()
+    for firing in scheduler.futures:
+      waitFor firing
+    check not active.finished
+    check scheduler.runningCount("delayed-failure") == 1
+    active.fail(newException(ValueError, "failed after stopAll"))
+    waitFor sleepAsync(0)
+
+    check scheduler.jobState("delayed-failure").get() == bsStopped
+    check scheduler.nextRun("delayed-failure").isNone
+    check scheduler.lastRun("delayed-failure") == actual
+    check scheduler.runningCount("delayed-failure") == 0
+    check scheduler.failures("delayed-failure") == 1
+    check scheduler.lastError("delayed-failure").msg.contains("failed after stopAll")
+    check scheduler.lastErrorAt("delayed-failure").get() >= actual.get()
+    check macroErrorHandlerCalls == 1
+
+  main()
