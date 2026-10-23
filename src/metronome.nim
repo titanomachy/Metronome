@@ -1,10 +1,28 @@
 ## # Metronome
 ##
 ## A Nim scheduler library for interval, cron, timer, and one-shot jobs.
+## Requires Nim >= 2.2.10 and has no third-party package dependencies.
 ##
-## Internal helpers calculate nominal occurrences from explicit schedule and
-## time inputs. Beaters own jitter, waiting, lifecycle state, and job execution.
-## The calculation helpers are not part of the supported public API.
+## ## Calculation and Execution
+##
+## A scheduler owns registered beaters, starts their execution loops, and exposes
+## lifecycle controls and job state. Each beater delegates nominal calculation
+## using its current schedule fields and explicit time inputs. Internal helpers
+## use only the standard library and cron evaluator, without reading clocks or
+## starting jobs. Beaters retain jitter, waiting, throttling, and job execution.
+## Calendar timers supply the optional evaluator through NextRunProc; the
+## calculation helpers are not part of the supported public API.
+##
+## * A nominal occurrence is the schedule time before jitter. Interval cadence
+##   advances from it after a launch or a throttled occurrence.
+## * The effective deadline adds any interval jitter. fireTime computes a
+##   candidate; nextRun reports the runtime's pending deadline used for waiting.
+## * lastRun records the wall-clock timestamp after job invocation. Load and job
+##   code can delay that timestamp; it is independent of job completion.
+##
+## For example, a ten-second interval at 12:00:00 with 200 ms jitter has a
+## 12:00:00.200 deadline, followed by a nominal occurrence at 12:00:10.
+## Dispatch remains best-effort and is not a real-time guarantee.
 ##
 ## ## Schedule By Every
 ##
@@ -35,6 +53,20 @@
 ##   rules. Async jobs run on the event loop and should not make blocking calls.
 ## * Exceptions from thread-backed jobs are not propagated through job futures.
 ## * The library schedules all jobs at a regular interval, but it'll be impacted by your system load.
+##
+## ## Direct Constructors
+##
+## Both entry macros build the same Beater objects as direct initBeater calls.
+## Direct construction accepts a TimeInterval, Cron, DateTime, or NextRunProc;
+## the optional timer module supplies initTimerBeater for CalendarTimer values.
+## Register the beater with an initScheduler result, then keep the event loop
+## running with serve() or the application's own loop after start().
+##
+## Direct bounds and cron timezones use Option values from options; DSL commands
+## wrap plain values. Direct constructors use throttleNum and errorHandler
+## where the DSL uses throttle and onError. NextRunProc must be non-nil, gcsafe,
+## and ``raises: []``; during live scheduling it runs on the event-loop thread and
+## should return promptly. Async job bodies can access GC-managed state.
 ##
 ## ## Schedule By Cron
 ##
@@ -205,35 +237,48 @@
 ##
 ## ## Set Start Time and End Time
 ##
-## You can limit the schedules running in a designated range of time by specifying startTime and endTime.
+## startTime anchors initial interval alignment. Custom schedules, including
+## calendar timers, query just before a future startTime to include that bound.
+## Cron queries from the current time and does not use startTime as a lower
+## bound. One-shot constructors take time instead of a separate range.
+##
+## endTime is inclusive for both the nominal occurrence and the deadline after
+## interval jitter. A late dispatch or running job can extend beyond endTime.
 ##
 ## For example::
 ##
-##     import metronome, times, asyncdispatch, os
+##     import metronome, times
 ##
 ##     scheduler demoSetRange:
 ##       every(
 ##         seconds=1,
 ##         id="tick",
-##         startTime=initDateTime(2019, 1, 1),
+##         startTime=dateTime(2026, mJan, 1, 0, 0, 0, 0, utc()),
 ##         endTime=now()+initDuration(seconds=10)
 ##       ):
 ##         echo("tick", now())
 ##
 ##     when isMainModule:
-##       waitFor demoSetRange.start()
+##       demoSetRange.serve()
 ##
-## Parameters startTime and endTime can be used independently. For example, you can set startTime only, or set endTime only.
+## startTime and endTime are independent. When omitted, startTime defaults to
+## construction time and there is no upper bound. serve() stays alive after
+## the range ends; use start() with your application's event loop to control
+## shutdown as described above.
 ##
 ## ## Calculate Next Run Times
 ##
-## Use fireTime to inspect the next scheduled run without starting a scheduler.
+## Use fireTime(prev, current) to compute a candidate from current schedule
+## fields and explicit time inputs without starting a scheduler. It does not
+## check pause/stop state or throttle capacity, launch jobs, or update lastRun
+## or nextRun.
 ## Built-in nominal calculations are deterministic for fixed schedule and time
 ## inputs. Interval jitter samples randomness, and custom callbacks may capture
 ## mutable state, so repeated fireTime calls can return different results.
-## Each eligible interval query samples the beater's RNG once. It does not
-## reserve that deadline: nextRun reports the runtime's pending deadline, while
-## a later preview or execution samples independently.
+## An interval query samples once when its nominal occurrence passes the upper
+## bound check and its jitter window measures at least one millisecond. It does
+## not reserve that deadline: nextRun reports the runtime's pending deadline,
+## while a later preview or execution samples independently.
 ##
 ## Example:
 ##
@@ -262,6 +307,7 @@
 ## startTime queries one nanosecond before that bound to include it. Custom and
 ## one-shot targets retain their supplied precision and timezone; a pending
 ## one-shot returns its deadline even when overdue. endTime is inclusive.
+## An absent candidate or one outside the bound returns none(DateTime).
 ##
 ## ## Error Handling
 ##
@@ -292,7 +338,7 @@
 ##
 ##     asyncCheck sched.start()
 ##
-## The every and cron macros also support job-level handlers on async jobs
+## The every, cron, timer, and at DSL commands support handlers on async jobs
 ## using onError=::
 ##
 ##     scheduler sched:
@@ -300,14 +346,15 @@
 ##         raise newException(ValueError, "boom")
 ##
 ## Use lastError(id), lastErrorAt(id), and failures(id) to inspect failure state
-## for a registered job.
+## for a registered job. Invocation errors and nil job futures use the same
+## reporting path; catchable handler failures are logged and contained. Active
+## jobs still report completion or failure after pause or stop.
 ##
 ## ## Interval Jitter
 ##
 ## Interval jobs can add a non-negative random delay to each computed run time
 ## with jitter. This is useful when many jobs or application instances would
-## otherwise launch at the same instant. Jitter is only supported for interval
-## schedules, not cron schedules.
+## otherwise launch at the same instant. Jitter is supported only for intervals.
 ##
 ## Example usage::
 ##
@@ -368,6 +415,20 @@
 ##     discard sched.resume("tick")
 ##     discard sched.stop("tick")
 ##     sched.stopAll()
+##
+## ## Job Introspection
+##
+## listJobs() returns all non-empty registered IDs, including duplicates.
+## ID-based controls and queries require exactly one match for a non-empty ID;
+## missing or ambiguous IDs return false, none, nil, or zero as appropriate.
+##
+## jobState(id) reports running, paused, or stopped. lastRun(id) is the actual
+## launch timestamp and nextRun(id) the pending effective deadline, both as
+## ``Option[DateTime]``. nextRun is empty before execution plans an occurrence,
+## while paused or stopped, and after exhaustion; it is not calculated on demand.
+## Exhaustion does not itself set a recurring job's lifecycle state to stopped.
+## lastError(id), lastErrorAt(id), and failures(id) report recorded failures;
+## runningCount(id) tracks active job futures, including after pause or stop.
 
 
 import metronome/scheduler

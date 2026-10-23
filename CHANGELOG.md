@@ -36,6 +36,15 @@
   AND day matching. Clarified timer integration in the README and NimDoc;
   optional imports, public APIs, and the pinned timezone catalog are unchanged.
 
+### Documentation
+
+- Updated the architecture diagram and README/NimDoc guidance to distinguish
+  nominal occurrences, effective pending deadlines, and actual launch timestamps.
+  Clarified per-kind start bounds, inclusive deadline limits, preview RNG effects,
+  direct constructor contracts, and runtime introspection. Corrected the bounds
+  snippet to use the current DateTime API and keep the event loop running.
+  Public scheduling APIs and behavior are unchanged.
+
 ### Development and regression coverage
 
 - Added execution regressions for waiting on published jittered deadlines,

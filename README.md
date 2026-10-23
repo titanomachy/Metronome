@@ -28,12 +28,16 @@ Features:
 ## How Metronome Fits Together
 
 Each schedule creates a beater that owns one job's timing and state. A
-scheduler manages those beaters, applies lifecycle controls, and dispatches
-due jobs through either the async event loop or a worker thread.
+scheduler owns the registered beaters, starts their execution loops, applies
+lifecycle controls, and exposes job state for inspection. Each beater dispatches
+its job through either the async event loop or a worker thread.
 
 The beater delegates nominal occurrence calculation to internal helpers using
 its current schedule fields and explicit time inputs. It owns jitter, waiting,
-throttling, and execution state; calculation does not start jobs or read a clock.
+throttling, and execution state. The internal helpers use only the standard
+library and existing cron evaluator; they calculate occurrences without reading
+a clock or starting jobs. Calendar timers supply their evaluator through the
+core's custom-schedule callback, keeping timer parsing and IANA data optional.
 
 ```mermaid
 flowchart TB
@@ -49,8 +53,10 @@ flowchart TB
 
   BEATER["Beater"]:::core
   CALCULATION["Nominal Schedule Calculation"]:::core
+  PLANNING["Beater Deadline Planning<br/>Bounds and Interval Jitter"]:::core
+  EXECUTION["Beater Execution<br/>Wait and Recheck Lifecycle"]:::core
   SCHEDULER["Scheduler"]:::core
-  GATE{"Dispatch Gate"}:::gate
+  GATE{"Throttle Capacity Available"}:::gate
   ASYNC["Async Event Loop"]:::target
   THREAD["Worker Thread (Default)"]:::target
 
@@ -60,11 +66,11 @@ flowchart TB
   TIMER --> BEATER
   AT --> BEATER
 
-  BEATER -->|Registers with| SCHEDULER
-  SCHEDULER -->|Controls| BEATER
-  BEATER -->|Schedule fields and query time| CALCULATION
-  CALCULATION -->|Nominal occurrence| BEATER
-  BEATER -->|Launch deadline| GATE
+  SCHEDULER -->|Owns and controls| BEATER
+  BEATER -->|Current fields and explicit time inputs| CALCULATION
+  CALCULATION -->|Nominal occurrence| PLANNING
+  PLANNING -->|Effective deadline: nextRun| EXECUTION
+  EXECUTION --> GATE
   GATE -->|async = true| ASYNC
   GATE -->|async = false| THREAD
 
@@ -83,12 +89,27 @@ flowchart TB
 - **Beater:** Manages one job's deadline, ID, throttle limit, bounds, and execution state.
 - **Nominal Schedule Calculation:** Evaluates interval, cron, custom, and one-shot candidates from explicit inputs, before jitter.
 - **Scheduler:** Owns beaters, applies lifecycle controls (`pause`, `resume`, `stop`), and provides state/run queries.
-- **Dispatch Gate:** Validates deadlines, bounds, and throttle concurrency limits.
+- **Deadline Planning:** Checks inclusive bounds before and after interval jitter; shared by `fireTime` and live execution.
+- **Beater Execution:** Publishes `nextRun`, waits for that deadline, and checks lifecycle state and throttle capacity before launching.
+
+### Occurrences, Deadlines, and Launches
+
+| Time | Meaning | API |
+| --- | --- | --- |
+| Nominal occurrence | Schedule time before jitter; interval cadence advances from this time even when throttled. | The `prev` argument to `fireTime` takes the previous nominal occurrence. |
+| Effective deadline | Nominal occurrence plus any interval jitter; waiting uses this deadline. | `fireTime` computes a candidate; `nextRun` reports the runtime's pending deadline. |
+| Actual launch timestamp | Wall-clock time recorded after invoking the job; system load and job code can delay it. | `lastRun` records this time, independently of job completion. |
+
+For a ten-second interval, a nominal occurrence at `12:00:00` with `200 ms`
+jitter gives a `12:00:00.200` deadline. The next nominal occurrence remains
+`12:00:10`, regardless of that delay or the job's duration. Dispatch is
+best-effort; the deadline is not a guarantee of the actual launch time.
 
 ## Contents
 
 - [Metronome](#metronome)
   - [How Metronome Fits Together](#how-metronome-fits-together)
+    - [Occurrences, Deadlines, and Launches](#occurrences-deadlines-and-launches)
   - [Contents](#contents)
   - [Getting Started](#getting-started)
   - [Usage](#usage)
@@ -118,6 +139,9 @@ flowchart TB
   - [Attributions](#attributions)
 
 ## Getting Started
+
+Requires Nim `>= 2.2.10` and has no third-party package dependencies. Applications
+that import `metronome` compile with threads enabled, including async-only jobs.
 
 ```bash
 nimble update
@@ -231,6 +255,13 @@ when scheduler-level settings such as an error handler are required, when the
 application needs to retain and inspect a `Beater`, or when a custom schedule
 is supplied through `NextRunProc`. It can also be convenient when job bodies
 already exist as named procedures.
+
+Direct bounds and cron timezones use `Option` values (`some(...)` or `none(...)`
+from `options`); the DSL wraps plain values for you. Direct constructors use
+`throttleNum` and `errorHandler` where the DSL uses `throttle` and `onError`.
+The public `NextRunProc` callback supplies custom schedules; it must be non-nil,
+`gcsafe`, and `raises: []`. During live scheduling it runs on the event-loop
+thread and should return promptly. Async job bodies can access GC-managed state.
 
 Use `scheduler name:` instead of `metronome:` when you prefer the DSL but need
 to retain the scheduler and call `name.start()` or `name.serve()` yourself.
@@ -519,29 +550,39 @@ nimble run -d:usestd
 
 ### Set Start Time and End Time
 
-You can limit the schedules running in a designated range of time by specifying
-`startTime` and `endTime`.
+`startTime` controls the initial interval anchor. Custom schedules, including
+calendar timers, query just before a future `startTime` to include an occurrence
+exactly at that bound. Cron always queries from the current time and does not
+use `startTime` as a lower bound. One-shot constructors take their deadline as
+`time` instead of accepting a separate range.
+
+`endTime` is an inclusive upper bound on both the nominal occurrence and the
+effective deadline after interval jitter. These are schedule bounds; a late
+dispatch or a running job can extend beyond `endTime`.
 
 For example,
 
 ```nim
-import metronome, times, asyncdispatch, os
+import metronome, times
 
 scheduler demoSetRange:
   every(
     seconds=1,
     id="tick",
-    startTime=initDateTime(2019, 1, 1),
+    startTime=dateTime(2026, mJan, 1, 0, 0, 0, 0, utc()),
     endTime=now()+initDuration(seconds=10)
   ):
     echo("tick", now())
 
 when isMainModule:
-  waitFor demoSetRange.start()
+  demoSetRange.serve()
 ```
 
-Parameters `startTime` and `endTime` can be used independently. For example,
-you can set startTime only, or set endTime only.
+Parameters `startTime` and `endTime` can be used independently. When omitted,
+`startTime` defaults to construction time and there is no upper bound. The
+blocking `serve()` loop stays alive after the range ends; use the startup and
+event-loop integration described in [Customize Scheduler](#customize-scheduler)
+when your application controls shutdown.
 
 ### Runnable Examples
 
@@ -577,13 +618,17 @@ nim c --threads:on -r examples/example_async_jobs.nim
 
 ### Calculate Next Run Times
 
-Use `fireTime` to inspect the next scheduled run without starting a scheduler.
+Use `fireTime(prev, current)` to compute a candidate from the beater's current
+schedule fields and explicit time inputs without starting a scheduler. This
+preview does not check pause/stop state or throttle capacity, launch jobs, or
+update `lastRun` or `nextRun`.
 Built-in nominal calculations are deterministic for fixed schedule and time
 inputs. Interval jitter samples randomness, and custom callbacks can capture
 mutable state, so repeated `fireTime` calls can return different results.
-Each eligible interval query samples the beater's RNG once. It does not reserve
-that deadline: `nextRun` reports the runtime's pending deadline, while a later
-preview or execution samples independently.
+An interval query samples once when its nominal occurrence passes the upper
+bound check and its jitter window measures at least one millisecond. It does
+not reserve that deadline: `nextRun` reports the runtime's pending deadline,
+while a later preview or execution samples independently.
 
 ```nim
 import metronome, times, options, asyncdispatch
@@ -613,7 +658,8 @@ first instant strictly after their input, or `none(DateTime)` when exhausted.
 A future custom `startTime` queries one nanosecond before that bound to allow
 an occurrence exactly at it. Custom and one-shot targets retain their supplied
 precision and timezone; a pending one-shot returns its deadline even if overdue.
-Candidates exactly at `endTime` are allowed.
+Candidates exactly at `endTime` are allowed. An absent candidate or one outside
+the upper bound returns `none(DateTime)`.
 
 ### Error Handling
 
@@ -644,8 +690,8 @@ sched.register(initBeater(
 asyncCheck sched.start()
 ```
 
-The `every` and `cron` macros also support job-level handlers on async jobs
-using `onError=`.
+The `every`, `cron`, `timer`, and `at` DSL commands support job-level handlers
+on async jobs using `onError=`.
 
 ```nim
 scheduler sched:
@@ -654,14 +700,16 @@ scheduler sched:
 ```
 
 Use `lastError(id)`, `lastErrorAt(id)`, and `failures(id)` to inspect failure
-state for a registered job.
+state for a registered job. Invocation errors and nil job futures follow the
+same failure-reporting path. Catchable errors raised by an error handler are
+logged and contained. Already-running jobs still report completion or failure
+after pause or stop.
 
 ### Interval Jitter
 
 Interval jobs can add a non-negative random delay to each computed run time with
 `jitter`. This is useful when many jobs or application instances would otherwise
-launch at the same instant. Jitter is only supported for interval schedules, not
-cron schedules.
+launch at the same instant. Jitter is supported only for interval schedules.
 
 ```nim
 import metronome, asyncdispatch, times
@@ -671,8 +719,9 @@ scheduler sched:
     echo("tick ", now())
 ```
 
-The example above runs every five minutes plus a random delay from `0` to `30`
-seconds. Direct `initBeater` calls accept the same `jitter` parameter:
+Each five-minute nominal occurrence in this example receives a random delay
+from `0` to `30` seconds. Direct `initBeater` calls accept the same `jitter`
+parameter:
 
 ```nim
 let beater = initBeater(
@@ -748,8 +797,12 @@ echo sched.runningCount("tick")
 
 `listJobs()` returns all non-empty registered ids, including duplicates. Use
 `jobState(id)` to inspect whether a job is running, paused, or stopped.
-`lastRun(id)` and `nextRun(id)` return `Option[DateTime]` values. `lastError(id)`
-returns the most recent exception or `nil`; `lastErrorAt(id)` and `failures(id)`
+`lastRun(id)` reports the actual launch timestamp and `nextRun(id)` the pending
+effective deadline, both as `Option[DateTime]`. `nextRun` is empty before
+execution plans an occurrence, while paused or stopped, and after exhaustion;
+it is not calculated on demand. Exhaustion does not itself change a recurring
+job's lifecycle state to stopped. `lastError(id)` returns the most recent
+exception or `nil`; `lastErrorAt(id)` and `failures(id)`
 report when and how often the job failed. `runningCount(id)` reports currently
 running job futures for that scheduled job.
 

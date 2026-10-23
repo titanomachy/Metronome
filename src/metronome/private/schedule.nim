@@ -2,6 +2,14 @@
 ## Inputs are explicit and built-in calculations are deterministic. Callbacks
 ## may carry mutable state. Execution, clocks, jitter/RNG, and lifecycle state
 ## belong to the scheduler; dependencies here are stdlib and the cron evaluator.
+##
+## prev is a nominal cadence input for intervals and a consumed marker for
+## one-shots; cron and custom calculations query current instead. startTime
+## anchors interval alignment and adjusts future custom queries, but is not a
+## cron lower bound. Helpers preserve per-kind precision and timezone rules.
+## The scheduler adapter filters nominal candidates with withinEndTime before
+## applying jitter, then filters effective deadlines again. No lifecycle state,
+## throttle capacity, RNG state, or actual launch timestamp enters calculation.
 
 import std/[options, times]
 from ../cron/cron import Cron, getNext

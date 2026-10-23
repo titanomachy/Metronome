@@ -1,8 +1,12 @@
 ## # Metronome
 ##
-## A Nim scheduler library that lets you kick off jobs at regular intervals.
+## Beaters delegate nominal calculation to private explicit-input helpers and
+## retain jitter, waiting, throttling, lifecycle state, and job execution. The
+## scheduler owns registered beaters and starts their execution loops.
 ##
 ## Example usage::
+##
+##     import metronome/scheduler, times, asyncdispatch
 ##
 ##     metronome:
 ##       every(seconds=1, id="tick", throttle=1, async=true):
@@ -148,11 +152,15 @@ proc state*(beater: Beater): BeaterState =
   beater.state
 
 proc lastRun*(beater: Beater): Option[DateTime] =
-  ## Return the last time this beater launched a job.
+  ## Return the wall-clock timestamp recorded after the last job invocation.
+  ## This is an actual launch timestamp, independent of nominal cadence and
+  ## completion; none(DateTime) means no job has been launched.
   beater.lastRunTime
 
 proc nextRun*(beater: Beater): Option[DateTime] =
   ## Return the pending effective launch deadline, including interval jitter.
+  ## Reads execution state without calculating or sampling jitter. Returns none
+  ## before a deadline is planned, while paused/stopped, or after exhaustion.
   beater.nextRunTime
 
 proc lastError*(beater: Beater): ref Exception =
@@ -219,6 +227,8 @@ proc initBeater*(
   ## startTime, endTime, and jitter are optional. Jitter adds a random
   ## non-negative delay to each interval launch without changing the base
   ## interval cadence.
+  ## startTime defaults to construction time and anchors initial alignment;
+  ## endTime is inclusive before and after jitter, rather than a completion limit.
   Beater(
     id: id,
     kind: bkInterval,
@@ -256,6 +266,8 @@ proc initBeater*(
   ## startTime, endTime, and jitter are optional. Jitter adds a random
   ## non-negative delay to each interval launch without changing the base
   ## interval cadence.
+  ## startTime defaults to construction time and anchors initial alignment;
+  ## endTime is inclusive before and after jitter, rather than a completion limit.
   if errorHandler != nil:
     raise newException(ValueError, "thread-backed beaters do not support error handlers")
   Beater(
@@ -295,6 +307,8 @@ proc initBeater*(
   ## startTime, endTime, and timezone are optional. When timezone is set, cron
   ## matching is evaluated in that timezone and converted back to the caller's
   ## timezone for scheduling.
+  ## Cron queries from the supplied current time; startTime is not a lower
+  ## bound. endTime is an inclusive candidate bound, rather than a completion limit.
   if errorHandler != nil:
     raise newException(ValueError, "thread-backed beaters do not support error handlers")
   Beater(
@@ -334,6 +348,8 @@ proc initBeater*(
   ## or none(DateTime) when exhausted. A future startTime queries the callback
   ## at startTime minus one nanosecond, allowing that exact lower bound.
   ## endTime is inclusive. Callback results retain their precision and timezone.
+  ## The callback runs during calculation on the calling thread and should
+  ## return promptly. Live execution calls it on the event-loop thread.
   if nextRunProc.isNil:
     raise newException(ValueError, "nextRunProc cannot be nil")
   Beater(
@@ -395,6 +411,8 @@ proc initBeater*(
   ## startTime, endTime, and timezone are optional. When timezone is set, cron
   ## matching is evaluated in that timezone and converted back to the caller's
   ## timezone for scheduling.
+  ## Cron queries from the supplied current time; startTime is not a lower
+  ## bound. endTime is an inclusive candidate bound, rather than a completion limit.
   Beater(
     id: id,
     kind: bkCron,
@@ -512,7 +530,7 @@ proc fireTime*(
   prev: Option[DateTime],
   now: DateTime
 ): Option[DateTime] =
-  ## Returns the next fire time of a task execution.
+  ## Compute an effective launch candidate from explicit time inputs.
   ##
   ## Reads the current schedule fields and delegates nominal calculation to
   ## internal helpers. `prev` is the previous nominal occurrence, independent
@@ -521,6 +539,8 @@ proc fireTime*(
   ## It shares deadline planning with `fire`, sampling once per eligible
   ## occurrence. A preview advances this beater's RNG; a later call or live
   ## execution samples independently and can return a different deadline.
+  ## Pause/stop state and throttle capacity do not affect this preview. Zero
+  ## or sub-millisecond jitter windows consume no random sample.
   ##
   ## For bkInterval, it uses these rules:
   ##
@@ -722,14 +742,17 @@ proc jobState*(self: Scheduler, id: string): Option[BeaterState] =
   result = some(beater.state)
 
 proc lastRun*(self: Scheduler, id: string): Option[DateTime] =
-  ## Return the last run time for a registered job.
+  ## Return the actual launch timestamp for a uniquely identified job, or none.
+  ## This timestamp is recorded after invocation, independently of completion.
   let beater = self.findBeater(id)
   if beater.isNil:
     return none(DateTime)
   result = beater.lastRun
 
 proc nextRun*(self: Scheduler, id: string): Option[DateTime] =
-  ## Return the next run time for a registered job.
+  ## Return the pending effective deadline for a uniquely identified job, or none.
+  ## Reads execution state without calculating or sampling interval jitter.
+  ## Before planning, while paused/stopped, and after exhaustion it is none.
   let beater = self.findBeater(id)
   if beater.isNil:
     return none(DateTime)

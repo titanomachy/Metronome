@@ -22,7 +22,8 @@
 ##
 ## Calendar deadlines are calculated to one microsecond. Metronome uses a
 ## millisecond event-loop wait, however, so dispatch is best-effort and is not
-## a real-time guarantee. Nonexistent local times are skipped at DST gaps;
+## a real-time guarantee. Positive sub-millisecond waits recheck the clock
+## before dispatch. Nonexistent local times are skipped at DST gaps;
 ## ambiguous local times select the earlier occurrence.
 ##
 ## Calendar fields accept ``*``, lists separated by commas, ascending ``..``
@@ -69,6 +70,9 @@ proc getNext*(
   ## Return the first matching instant strictly later than current.
   ##
   ## When multiple expressions match the same instant, it is returned once.
+  ## Retains microseconds and returns in current's timezone; no match returns
+  ## none(DateTime). This evaluates the calendar without creating a job or
+  ## starting an execution loop.
   for spec in timer.specs:
     let candidate = spec.getNext(current)
     if candidate.isSome and (result.isNone or
@@ -97,6 +101,8 @@ proc initTimerBeater*(
   ## can match exactly; endTime is inclusive. Timer evaluation retains
   ## microseconds and its input timezone. Bounds, throttling, lifecycle, and
   ## error handling follow the core custom-beater API.
+  ## Calendar targets have no interval jitter. fireTime previews a candidate;
+  ## nextRun reports the pending deadline once execution has planned it.
   initBeater(
     nextRunProc = timer.timerNextRun(),
     asyncProc = asyncProc,

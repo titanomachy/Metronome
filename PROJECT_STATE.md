@@ -5,9 +5,9 @@
 The baseline inventory, **Internal Architecture and Dependencies**,
 **Nominal Schedule Calculation**, **Jitter and Deadline Planning**,
 **Execution and Lifecycle Integration**, **Optional Modules and DSL
-Compatibility**, **Deterministic Calculation Tests**, and **Execution and Public
-API Regression Tests** categories are complete. The next category is **README
-and Source Documentation**. The execution checklist is
+Compatibility**, **Deterministic Calculation Tests**, **Execution and Public
+API Regression Tests**, and **README and Source Documentation** categories are
+complete. The next category is **Examples and Changelog**. The execution checklist is
 `PLANS/PLAN-schedule-calculation-execution.md`; `PLANS/PLAN.md` is absent.
 The plan remains ignored local material under `PLANS/`.
 
@@ -420,6 +420,59 @@ Only the execution/public API regression category is completed here. The README
 and source-documentation audit is next. Generated docs, coverage reports/badge,
 caches, binaries, and the local plan remain ignored and are not committed.
 
+## README and source documentation
+
+Completed on 2026-10-24, starting from `50ed70f` on a clean `development`
+branch. README's diagram now shows explicit-input nominal calculation feeding
+beater-owned deadline planning, waiting, lifecycle checks, and throttled
+dispatch. The scheduler retains ownership, startup, controls, and inspection.
+README and source NimDoc distinguish three timing values:
+
+- Nominal occurrence: the interval cadence input, retained after launches and
+  throttled occurrences independently of jitter and job duration.
+- Effective deadline: the nominal candidate after optional interval jitter and
+  inclusive bounds checks. `fireTime` computes a preview using explicit inputs;
+  `nextRun` reads the pending runtime deadline without calculation or RNG use.
+- Actual launch timestamp: `lastRun` records the clock after job invocation,
+  independently of completion. Schedule bounds do not limit completion or
+  prevent a late dispatch beyond `endTime`.
+
+The documentation states the existing per-kind lower-bound rules: interval
+anchors, the custom/timer future-start adjustment, cron's current-time query,
+and precise pending one-shots. Direct constructors retain Option-valued bounds
+and cron timezones, `throttleNum`, and `errorHandler`; DSL parameters retain
+their current plain-value wrapping and names. Custom callbacks stay non-nil,
+gcsafe, raises: [], and should return promptly during event-loop calculation.
+Async job bodies can access GC-managed state. Public requirements, optional
+imports, best-effort dispatch, lifecycle, and failure reporting remain intact.
+
+Updated the bounds snippets to use `dateTime` and keep the event loop running
+with `serve()`, explicitly explaining that the blocking loop survives schedule
+exhaustion. Public `##` comments and the private calculator's invariants agree
+with these contracts. AGENTS.md describes the shared planner's bound checks.
+No implementation code, public signatures/exports, example files, tests,
+dependencies, compiler configuration, version, or runtime policy changed.
+
+Validation on Nim `2.2.12`:
+
+- Baseline and final `nimble test`: all 154 tests pass.
+- `nimble docs`: passes without warnings; public root/scheduler/timezone/timer
+  pages and the new sections are present. All 57 canonical scheduler export
+  links resolve, including NextRunProc, fireTime, lastRun, and nextRun. The
+  complete root export-link set matches freshly generated baseline docs.
+- Six extracted README/NimDoc snippets compile with threads enabled; both
+  next-run snippets print `2026-01-01T12:40:00Z`. The unchanged fire-time example
+  runs with its original interval/window/cron output. All 31 README section
+  links resolve, and the diagram passes the installed Mermaid flowchart grammar
+  with browser rendering disabled.
+- `nimble build`: attempted; returns "Nothing to build" under the existing
+  user-confirmed source-library waiver. `git diff --check` passes. Validation
+  uses the installed compiler, isolated Nimble metadata, and temporary caches.
+
+Only this documentation category is completed. The later examples/changelog
+review and packaging/CI audit remain pending. Generated docs, caches, binaries,
+and the updated local execution checklist remain ignored and are not committed.
+
 ## Baseline snapshot
 
 Starting snapshot, recorded on 2026-10-23:
@@ -628,10 +681,17 @@ Generated docs, reports, binaries, caches, and local plans are not committed.
 CI's Nim `2.2.10` and lcov `2.1` pins remain unchanged; local validation uses
 Nim `2.2.12` and lcov `2.6`.
 
-## Deferred observation
+## Deferred observations
 
 The existing cron evaluator retains a second when rounding some fractional
 queries: `2026-01-01T11:30:00.123456789Z` with hour `13`, minute `0` returns
 `2026-01-01T13:00:01Z`. This was observed while writing the mutable-field test.
 It is outside the calculation-boundary category; cron evaluation remains
 unchanged and that regression uses a whole-second query.
+
+Nim `2.2.12` project documentation emits duplicate root re-export links with
+`_2`/`_3` suffixes whose target anchors do not exist. A fresh baseline generation
+from `50ed70f` and the documentation category output have the identical set:
+57 working canonical scheduler links and 112 broken suffixed duplicates.
+Canonical public symbol visibility and links are preserved; the generator's
+duplicate-link behavior is outside this documentation-only category.
