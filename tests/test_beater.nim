@@ -1,5 +1,6 @@
 import unittest
 import times, options, asyncdispatch
+import std/[importutils, random]
 import metronome
 
 proc dummyAsync(): Future[void] {.async.} = discard
@@ -292,6 +293,156 @@ test "IntervalBeater.fireTime | jitter with previous run":
   let actual = beater.fireTime(prev, current).get()
   check actual >= base
   check actual <= base + initTimeInterval(seconds=5)
+
+test "IntervalBeater.fireTime | jitter includes both endpoints and samples once per preview":
+  privateAccess(Beater)
+  let zone = fixedTimezone("Test/Jitter", -7200)
+  let current = dateTime(2026, mJan, 1, 12, 0, 0, 123_456_789, zone)
+  let nominal = current + initDuration(seconds=10)
+  var seen: array[2, bool]
+  for seed in 1..8:
+    let beater = initBeater(
+      initTimeInterval(seconds=10), dummyAsync, startTime=some(nominal),
+      jitter=initTimeInterval(milliseconds=1)
+    )
+    beater.jitterRand = initRand(seed)
+    var expectedRand = initRand(seed)
+    for preview in 1..2:
+      let offsetMs = expectedRand.rand(1)
+      let actual = beater.fireTime(none(DateTime), current).get()
+      check actual == nominal + initDuration(milliseconds=offsetMs)
+      check actual.nanosecond mod 1_000_000 == nominal.nanosecond mod 1_000_000
+      check actual.timezone == zone
+      check beater.jitterRand == expectedRand
+      check beater.nextRun.isNone
+      check beater.lastRun.isNone
+      seen[offsetMs] = true
+  check seen == [true, true]
+
+test "IntervalBeater.fireTime | non-positive and sub-millisecond jitter do not sample":
+  privateAccess(Beater)
+  let current = dateTime(2026, mJan, 1, 12, 0, 0, 123_456_789, utc())
+  for jitter in [initTimeInterval(), initTimeInterval(milliseconds= -1),
+      initTimeInterval(nanoseconds=999_999)]:
+    let beater = initBeater(
+      initTimeInterval(seconds=10), dummyAsync, startTime=some(current), jitter=jitter
+    )
+    let initialRand = initRand(42)
+    beater.jitterRand = initialRand
+    check beater.fireTime(none(DateTime), current).get() == current
+    check beater.jitterRand == initialRand
+
+test "IntervalBeater.fireTime | calendar jitter is measured at each nominal occurrence":
+  privateAccess(Beater)
+  let start = dateTime(2023, mDec, 1, 0, 0, 0, 123_456_789, utc())
+  let current = dateTime(2024, mApr, 1, 0, 0, 0, 0, utc())
+  let beater = initBeater(
+    initTimeInterval(months=1), dummyAsync, startTime=some(start),
+    jitter=initTimeInterval(months=1)
+  )
+  beater.jitterRand = initRand(42)
+  var expectedRand = initRand(42)
+  var previous = dateTime(2024, mJan, 1, 0, 0, 0, 123_456_789, utc())
+  for (month, days) in [(mFeb, 29), (mMar, 31)]:
+    let nominal = dateTime(2024, month, 1, 0, 0, 0, 123_456_789, utc())
+    # These windows exceed a 32-bit int; retain the platform's existing cap.
+    let maxOffsetMs = int(min(int64(days) * 86_400_000, int64(high(int))))
+    let offsetMs = expectedRand.rand(maxOffsetMs)
+    let actual = beater.fireTime(some(previous), current).get()
+    check actual == nominal + initDuration(milliseconds=offsetMs)
+    check actual.nanosecond mod 1_000_000 == 456_789
+    check beater.jitterRand == expectedRand
+    previous = nominal
+
+test "Beater deadline planning | inspection and execution share inclusive jitter bounds":
+  privateAccess(Beater)
+  let nominal = dateTime(2100, mJan, 1, 0, 0, 0, 123_456_789, utc())
+  let current = nominal - initDuration(days=1)
+  let initialRand = initRand(1)
+  var sampledRand = initialRand
+  # A one-millisecond sample exercises rejection after jitter and its exact edge.
+  require sampledRand.rand(1) == 1
+  for endTime in [nominal - initDuration(nanoseconds=1), nominal,
+      nominal + initDuration(milliseconds=1)]:
+    let preview = initBeater(
+      initTimeInterval(seconds=10), dummyAsync, startTime=some(nominal),
+      endTime=some(endTime), jitter=initTimeInterval(milliseconds=1)
+    )
+    let live = initBeater(
+      initTimeInterval(seconds=10), dummyAsync, startTime=some(nominal),
+      endTime=some(endTime), jitter=initTimeInterval(milliseconds=1)
+    )
+    preview.jitterRand = initialRand
+    live.jitterRand = initialRand
+    let inspected = preview.fireTime(none(DateTime), current)
+    let firing = live.fire()
+    if endTime > nominal:
+      check inspected == some(endTime)
+      check not firing.finished
+    else:
+      check inspected.isNone
+      check firing.finished
+    check live.nextRun == inspected
+    check live.lastRun.isNone
+    let expectedRand = if endTime < nominal: initialRand else: sampledRand
+    check preview.jitterRand == expectedRand
+    check live.jitterRand == expectedRand
+    live.stop()
+    waitFor firing
+
+test "Beater deadline planning | launches and throttled occurrences retain nominal cadence":
+  privateAccess(Beater)
+  let nominal = dateTime(2000, mJan, 1, 0, 0, 0, 0, utc())
+  for throttle in [false, true]:
+    var launches = 0
+    let job: BeaterAsyncProc = proc(): Future[void] =
+      launches.inc
+      result = newFuture[void]("jitter cadence job")
+      result.complete()
+    let beater = initBeater(
+      initTimeInterval(milliseconds=5), job, startTime=some(nominal),
+      endTime=some(nominal + initDuration(milliseconds=10)),
+      jitter=initTimeInterval(milliseconds=1)
+    )
+    # Supply an overdue prior nominal time through the existing resume input,
+    # so all three occurrences are evaluated without clock sleeps.
+    beater.resumeTime = some(nominal - initDuration(milliseconds=5))
+    beater.jitterRand = initRand(1)
+    var expectedRand = initRand(1)
+    require expectedRand.rand(1) == 1
+    discard expectedRand.rand(1)
+    let lastOffset = expectedRand.rand(1)
+    let blocker = newFuture[void]("jitter throttle blocker")
+    if throttle:
+      beater.throttler.submit(blocker)
+
+    waitFor beater.fire()
+    # Completed job futures queue their tracking callbacks for the event loop.
+    waitFor sleepAsync(0)
+
+    check beater.jitterRand == expectedRand
+    check launches == (if throttle: 0 elif lastOffset == 0: 3 else: 2)
+    check beater.nextRun.isNone
+    check beater.runningCount == 0
+    check beater.lastRun.isSome == not throttle
+    blocker.complete()
+
+test "Beater.fireTime | non-interval schedules do not consume jitter randomness":
+  privateAccess(Beater)
+  let current = dateTime(2026, mJan, 1, 12, 0, 0, 0, utc())
+  let custom: NextRunProc = proc(current: DateTime): Option[DateTime] {.
+      gcsafe, raises: []
+    .} = some(current + initDuration(seconds=1))
+  let beaters = [
+    initBeater(newCron(hour="13", minute="0"), dummyAsync),
+    initBeater(custom, dummyAsync, startTime=some(current)),
+    initBeater(current, dummyAsync)
+  ]
+  for beater in beaters:
+    let initialRand = initRand(42)
+    beater.jitterRand = initialRand
+    check beater.fireTime(none(DateTime), current).isSome
+    check beater.jitterRand == initialRand
 
 test "CronBeater.fireTime | timezone":
   let current = dateTime(2026, mJan, 1, 11, 30, 0, 0, utc())

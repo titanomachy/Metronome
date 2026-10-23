@@ -566,6 +566,9 @@ Use `fireTime` to inspect the next scheduled run without starting a scheduler.
 Built-in nominal calculations are deterministic for fixed schedule and time
 inputs. Interval jitter samples randomness, and custom callbacks can capture
 mutable state, so repeated `fireTime` calls can return different results.
+Each eligible interval query samples the beater's RNG once. It does not reserve
+that deadline: `nextRun` reports the runtime's pending deadline, while a later
+preview or execution samples independently.
 
 ```nim
 import metronome, times, options, asyncdispatch
@@ -664,6 +667,12 @@ let beater = initBeater(
   jitter=initTimeInterval(seconds=30)
 )
 ```
+
+The jitter window uses `TimeInterval` arithmetic at each nominal occurrence,
+then samples an inclusive whole-millisecond delay. Non-positive measured windows
+add no delay. Nominal cadence stays unchanged after launches and throttled
+occurrences. Both the nominal occurrence and the jittered deadline must be at
+or before `endTime`.
 
 ### Job Controls
 

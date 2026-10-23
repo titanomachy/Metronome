@@ -2,10 +2,10 @@
 
 ## Schedule calculation refactor progress
 
-The baseline inventory, **Internal Architecture and Dependencies**, and
-**Nominal Schedule Calculation** categories are complete. The next category is
-**Jitter and Deadline Planning**. The
-execution checklist is
+The baseline inventory, **Internal Architecture and Dependencies**,
+**Nominal Schedule Calculation**, and **Jitter and Deadline Planning**
+categories are complete. The next category is **Execution and Lifecycle
+Integration**. The execution checklist is
 `PLANS/PLAN-schedule-calculation-execution.md`; `PLANS/PLAN.md` is absent.
 The plan remains ignored local material under `PLANS/`.
 
@@ -29,9 +29,12 @@ object, including `RootObj` inheritance, remain defined in the scheduler.
 The scheduler retains lifecycle, job callbacks/futures, throttling, error state,
 actual launch timestamps, resume/pause tracking, and the beater-owned jitter
 RNG. Interval-length measurement is shared with jitter, but random sampling
-stays in `applyJitter`. Inspection and execution still separately apply jitter
-and check the effective upper bound; consolidating that deadline path belongs
-to a later category. Optional timer/timezone modules and their data are
+stays in `applyJitter`. Private scheduler helper `planFireTime` returns
+`Option[tuple[nominal, effective: DateTime]]` and supplies both `fireTime` and
+`fire`. It filters the nominal candidate before sampling, applies jitter once,
+and filters the effective deadline using the same inclusive upper bound. The
+live loop retains the nominal time across waiting and advances cadence from it
+after a launch or throttling. Optional timer/timezone modules and their data are
 unchanged. No dependency, backend, package version, or scheduling policy changed.
 
 Internal-architecture validation on 2026-10-23:
@@ -49,8 +52,8 @@ Internal-architecture validation on 2026-10-23:
 - `nimble build`: attempted; no binary target, with the user-confirmed waiver
   described below. `git diff --check` passes.
 
-The dedicated calculation test matrix, shared deadline planning, broader
-execution integration, and final packaging/CI checks remain in their later
+The dedicated calculation test matrix, broader execution/lifecycle verification,
+and final packaging/CI checks remain in their later
 categories.
 Generated documentation, coverage reports/badge, caches, test binaries, and
 the local execution plan remain ignored and are not committed.
@@ -94,9 +97,64 @@ Validation:
 - `git diff --check`: passes. Validation uses the installed compilers and
   isolated Nimble/compiler caches under `/tmp`, without network access.
 
-Only the nominal-calculation checklist is completed in this category. Jitter
-planning, runtime integration, the dedicated calculator suite, and final
-packaging remain pending. Generated artifacts and the local plan stay ignored.
+That category completed only the nominal-calculation checklist. Deadline
+planning is recorded below; the broader lifecycle audit, dedicated calculator
+suite, and final packaging remain pending. Generated artifacts and the local
+plan stay ignored.
+
+## Jitter and deadline planning
+
+Completed on 2026-10-23, starting from `4ed61d0` on a clean `development`
+branch. Both public inspection and live execution now call `planFireTime`.
+This scheduler-private adapter retains nominal and effective times without a
+new public type, schedule model, callback allocation, or RNG interface. Nominal
+arithmetic remains in the execution-independent private calculator. Waiting,
+launching, throttling, pause/resume handling, and all other lifecycle behavior
+stay in the existing execution path.
+
+Jitter arithmetic is unchanged: interval-only, measured relative to each
+nominal occurrence using calendar-relative `TimeInterval` arithmetic, truncated
+to milliseconds, ignored when non-positive, capped at `high(int)`, and sampled
+inclusively from zero through that cap. A nominal candidate rejected by
+`endTime` consumes no sample; a jittered candidate rejected afterward consumes
+one. Both bounds are inclusive. Public `fireTime` advances the beater's RNG
+when jitter applies and does not reserve a deadline or set runtime `nextRun`.
+Independent preview and execution calls can sample different effective times.
+
+Six added regressions in `tests/test_beater.nim` cover both jitter endpoints,
+one sample per preview, non-positive/sub-millisecond windows without sampling,
+non-interval schedules without sampling, precision/timezone retention,
+leap-year month-relative windows and the existing integer cap, matching
+inspection/runtime bounds, and nominal cadence after launches and throttling.
+Tests use standard-library `privateAccess` to control the beater RNG; no public
+seed API is added. An overdue prior nominal time supplied through the existing
+resume input makes the cadence regression independent of wall-clock sleeps.
+Completed-job callbacks are allowed an event-loop turn before checking tracking
+cleanup. The dedicated calculation suite remains in its later category.
+
+README, top-level NimDoc, `fireTime`, and `nextRun` now clarify preview RNG
+effects, effective pending deadlines, calendar-relative jitter, and bounds.
+The current architecture diagram and example code/output remain accurate and
+unchanged. The changelog records the behavior-preserving consolidation.
+
+Validation:
+
+- Baseline `nimble test`: 124 passing tests on Nim `2.2.12`.
+- Final `nimble test`: 130 passing tests on Nim `2.2.12` and minimum supported
+  Nim `2.2.10`; the focused beater suite has 49 passing tests.
+- `nimble coverage`: passes at 86.5% (1905/2202 lines), above the 80% minimum.
+- `nimble docs`: passes; generated root/scheduler text is present, the private
+  planner is absent from public symbol documentation, and timezone/timer pages
+  remain present.
+- Fire-time example: compiles and runs with its existing three timestamps.
+- `nimble build`: attempted, returns "Nothing to build"; retain the previously
+  confirmed source-library waiver, using tests/examples for compilation.
+- `git diff --check`: passes. Validation uses installed compilers and isolated
+  Nimble/compiler caches under `/tmp`, without network access.
+
+Only the jitter/deadline checklist is completed here. No broader lifecycle,
+optional-module, dedicated-suite, or packaging category was started. Generated
+docs, coverage reports/badge, caches, binaries, and the local plan stay ignored.
 
 ## Baseline snapshot
 
@@ -164,7 +222,8 @@ retain their `gcsafe, thread` pragmas.
 
 The private calculation path is `nominalFireTime` -> per-kind calculation helper
 -> `withinEndTime`, followed on the execution side by `applyJitter` and a second
-upper-bound check. Interval calculation and jitter share `intervalMilliseconds`.
+upper-bound check. `planFireTime` owns this orchestration for both inspection
+and execution. Interval calculation and jitter share `intervalMilliseconds`.
 
 | Input or result | Meaning |
 | --- | --- |
@@ -226,17 +285,15 @@ An empty scheduler starts no fire loops.
 
 ### Inspection versus live execution
 
-`fireTime(prev, now)` calls the nominal helper, samples interval jitter once,
-checks the effective deadline against `endTime`, and returns it. It does not set
-`nextRun`, `lastRun`, lifecycle state, or counters. It can advance the beater's
-RNG or invoke a stateful user callback, so it is not universally pure.
+`fireTime(prev, now)` calls the shared planner and returns its effective
+deadline. It does not set `nextRun`, `lastRun`, lifecycle state, or counters.
+It can advance the beater's RNG or invoke a stateful user callback, so it is
+not universally pure.
 
-`fire` calls the same nominal helper but currently duplicates the jitter and
-post-jitter bound checks. It retains both nominal and effective times, publishes
-the effective time as `nextRun`, waits, and advances `prev` from the nominal time
-after either dispatch or throttling. Calling `fireTime` from the live loop would
-lose that nominal value unless the adapter changes; sampling twice would change
-RNG consumption. Sharing deadline planning remains later work.
+`fire` calls the same planner. It retains both nominal and effective times,
+publishes the effective time as `nextRun`, waits, and advances `prev` from
+the nominal time after either dispatch or throttling. The shared planner
+returns both times, avoiding another preview call and extra random samples.
 
 Jitter is interval-only and non-negative: measure its `TimeInterval` relative to
 the nominal occurrence, ignore non-positive millisecond lengths, cap at

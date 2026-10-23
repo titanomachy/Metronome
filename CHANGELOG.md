@@ -16,6 +16,12 @@
   cron caller timezones and inclusive bounds, stateful custom callbacks, and
   precise one-shot deadlines. Clarified deterministic built-in calculation and
   callback contracts in the README and NimDoc; scheduling behavior is unchanged.
+- Shared deadline planning between `fireTime` and live execution, retaining both
+  nominal occurrences and jittered deadlines. Preserved beater-owned RNG
+  sampling, calendar-relative jitter, inclusive bounds before and after jitter,
+  and nominal cadence after launches or throttling. Added controlled jitter
+  regressions and clarified preview RNG effects and pending runtime deadlines
+  in the README and NimDoc; public APIs and scheduling behavior are unchanged.
 
 ### Development and regression coverage
 

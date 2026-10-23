@@ -152,7 +152,7 @@ proc lastRun*(beater: Beater): Option[DateTime] =
   beater.lastRunTime
 
 proc nextRun*(beater: Beater): Option[DateTime] =
-  ## Return the next scheduled run time for this beater.
+  ## Return the pending effective launch deadline, including interval jitter.
   beater.nextRunTime
 
 proc lastError*(beater: Beater): ref Exception =
@@ -493,6 +493,20 @@ proc nominalFireTime(
 
   result = withinEndTime(result, self.endTime)
 
+proc planFireTime(
+  self: Beater,
+  prev: Option[DateTime],
+  now: DateTime
+): Option[tuple[nominal, effective: DateTime]] =
+  # Shared candidate-to-deadline path for public inspection and live execution.
+  # Keep both times: cadence advances from nominal even when dispatch throttles.
+  # Reject out-of-window nominal candidates before consuming any random sample.
+  let nominal = self.nominalFireTime(prev, now)
+  if nominal.isSome:
+    let effective = withinEndTime(some(self.applyJitter(nominal.get())), self.endTime)
+    if effective.isSome:
+      return some((nominal: nominal.get(), effective: effective.get()))
+
 proc fireTime*(
   self: Beater,
   prev: Option[DateTime],
@@ -504,6 +518,9 @@ proc fireTime*(
   ## internal helpers. `prev` is the previous nominal occurrence, independent
   ## of jitter and actual launch time. Interval jitter is sampled here on the
   ## beater; this call does not update runtime `nextRun` or launch a job.
+  ## It shares deadline planning with `fire`, sampling once per eligible
+  ## occurrence. A preview advances this beater's RNG; a later call or live
+  ## execution samples independently and can return a different deadline.
   ##
   ## For bkInterval, it uses these rules:
   ##
@@ -525,16 +542,11 @@ proc fireTime*(
   ## Built-in nominal calculations are deterministic for fixed inputs. A custom
   ## callback may carry mutable state, and interval jitter samples the RNG.
   ##
-  ## If `self.endTime` is set and the computed fire time is later than it,
-  ## none(DateTime) is returned. A fire time exactly equal to `endTime` is still
-  ## allowed.
-  result = self.nominalFireTime(prev, now)
-
-  if result.isSome:
-    result = some(self.applyJitter(result.get()))
-
-  if self.endTime.isSome and result.isSome and result.get() > self.endTime.get():
-    result = none(DateTime)
+  ## If `self.endTime` is set, both the nominal occurrence and the jittered
+  ## deadline must be at or before it; otherwise none(DateTime) is returned.
+  let planned = self.planFireTime(prev, now)
+  if planned.isSome:
+    result = some(planned.get().effective)
 
 proc waitUntil(
   self: Beater,
@@ -594,7 +606,6 @@ proc fire*(
 ) {.async.} =
   ## Fire beats as async loop until no beats can be scheduled.
   var prev = none(DateTime)
-  var nextRunTime = none(DateTime)
   while self.state != bsStopped:
     if self.state == bsPaused:
       await sleepAsync(100)
@@ -605,19 +616,15 @@ proc fire*(
         prev = self.resumeTime
       self.resumeTime = none(DateTime)
 
-    let nominalRunTime = self.nominalFireTime(prev, now())
-    if nominalRunTime.isNone:
+    let planned = self.planFireTime(prev, now())
+    if planned.isNone:
       self.nextRunTime = none(DateTime)
       break
 
-    nextRunTime = some(self.applyJitter(nominalRunTime.get()))
-    if self.endTime.isSome and nextRunTime.get() > self.endTime.get():
-      self.nextRunTime = none(DateTime)
-      break
-
-    self.nextRunTime = nextRunTime
+    let occurrence = planned.get()
+    self.nextRunTime = some(occurrence.effective)
     let pauseGeneration = self.pauseGeneration
-    let reachedRunTime = await waitUntil(self, nextRunTime.get(), pauseGeneration)
+    let reachedRunTime = await waitUntil(self, occurrence.effective, pauseGeneration)
     if not reachedRunTime:
       prev = none(DateTime)
       continue
@@ -629,12 +636,12 @@ proc fire*(
       self.lastRunTime = some(now())
       self.throttler.submit(fut)
       self.watch(fut, errorHandler)
-      prev = nominalRunTime
+      prev = some(occurrence.nominal)
       if self.kind == bkOnce:
         self.stop()
     else:
       debug("\"", self.id, "\" is trottled. Maximum num is ", self.throttler.num, ".")
-      prev = nominalRunTime
+      prev = some(occurrence.nominal)
 
 type
   Scheduler* = ref object
