@@ -31,6 +31,10 @@ Each schedule creates a beater that owns one job's timing and state. A
 scheduler manages those beaters, applies lifecycle controls, and dispatches
 due jobs through either the async event loop or a worker thread.
 
+The beater delegates nominal occurrence calculation to internal helpers using
+its current schedule fields and explicit time inputs. It owns jitter, waiting,
+throttling, and execution state; calculation does not start jobs or read a clock.
+
 ```mermaid
 flowchart TB
   DSL(["Metronome DSL / Direct Constructors"]):::entry
@@ -44,6 +48,7 @@ flowchart TB
   end
 
   BEATER["Beater"]:::core
+  CALCULATION["Nominal Schedule Calculation"]:::core
   SCHEDULER["Scheduler"]:::core
   GATE{"Dispatch Gate"}:::gate
   ASYNC["Async Event Loop"]:::target
@@ -56,7 +61,10 @@ flowchart TB
   AT --> BEATER
 
   BEATER -->|Registers with| SCHEDULER
-  SCHEDULER --> GATE
+  SCHEDULER -->|Controls| BEATER
+  BEATER -->|Schedule fields and query time| CALCULATION
+  CALCULATION -->|Nominal occurrence| BEATER
+  BEATER -->|Launch deadline| GATE
   GATE -->|async = true| ASYNC
   GATE -->|async = false| THREAD
 
@@ -73,6 +81,7 @@ flowchart TB
 - **Calendar Timer:** Microsecond-precision systemd-style targets with optional IANA timezones.
 - **One-Shot Scheduling:** Single deadline execution.
 - **Beater:** Manages one job's deadline, ID, throttle limit, bounds, and execution state.
+- **Nominal Schedule Calculation:** Evaluates interval, cron, custom, and one-shot candidates from explicit inputs, before jitter.
 - **Scheduler:** Owns beaters, applies lifecycle controls (`pause`, `resume`, `stop`), and provides state/run queries.
 - **Dispatch Gate:** Validates deadlines, bounds, and throttle concurrency limits.
 

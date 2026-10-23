@@ -14,7 +14,8 @@
 
 import macros, options, times, asyncdispatch, sequtils, logging, random
 
-from ./cron/cron import Cron, newCron, getNext
+from ./cron/cron import Cron, newCron
+import ./private/schedule
 
 var logger* = newConsoleLogger() ## By default, the logger is attached to no handlers.
 ## If you want to show logs, please call `addHandler(logger)`.
@@ -186,9 +187,6 @@ proc stop*(beater: Beater) =
   ## Stop this beater permanently.
   beater.state = bsStopped
   beater.nextRunTime = none(DateTime)
-
-proc intervalMilliseconds(startTime: DateTime, interval: TimeInterval): int64 =
-  (startTime + interval - startTime).inMilliseconds
 
 proc newJitterRand(): Rand =
   let current = now()
@@ -478,46 +476,18 @@ proc nominalFireTime(
   prev: Option[DateTime],
   now: DateTime
 ): Option[DateTime] =
+  # Read current exported fields; keep execution state and jitter on Beater.
   result = case self.kind
   of bkInterval:
-    some(
-      if prev.isNone:
-        if self.startTime >= now:
-          self.startTime
-        else:
-          let passedMs = (now - self.startTime).inMilliseconds
-          let intervalLen = intervalMilliseconds(self.startTime, self.interval)
-          if intervalLen <= 0:
-            now
-          else:
-            let leftMs = intervalLen - passedMs mod intervalLen
-            now + initDuration(milliseconds=leftMs)
-      else:
-        prev.get() + self.interval
-    )
+    intervalNextRun(self.interval, self.startTime, prev, now)
   of bkCron:
-    if self.timezone.isSome:
-      let zonedNow = now.inZone(self.timezone.get())
-      let zonedNext = self.cron.getNext(zonedNow)
-      if zonedNext.isSome:
-        some(zonedNext.get().toTime.inZone(now.timezone))
-      else:
-        none(DateTime)
-    else:
-      self.cron.getNext(now)
+    cronNextRun(self.cron, self.timezone, now)
   of bkCustom:
-    if self.startTime > now:
-      self.nextRunProc(self.startTime - initDuration(nanoseconds=1))
-    else:
-      self.nextRunProc(now)
+    customNextRun(self.nextRunProc, self.startTime, now)
   of bkOnce:
-    if prev.isNone:
-      some(self.startTime)
-    else:
-      none(DateTime)
+    onceNextRun(self.startTime, prev)
 
-  if self.endTime.isSome and result.isSome and result.get() > self.endTime.get():
-    result = none(DateTime)
+  result = withinEndTime(result, self.endTime)
 
 proc fireTime*(
   self: Beater,
@@ -525,6 +495,11 @@ proc fireTime*(
   now: DateTime
 ): Option[DateTime] =
   ## Returns the next fire time of a task execution.
+  ##
+  ## Reads the current schedule fields and delegates nominal calculation to
+  ## internal helpers. `prev` is the previous nominal occurrence, independent
+  ## of jitter and actual launch time. Interval jitter is sampled here on the
+  ## beater; this call does not update runtime `nextRun` or launch a job.
   ##
   ## For bkInterval, it uses these rules:
   ##

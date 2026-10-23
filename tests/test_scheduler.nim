@@ -2,6 +2,7 @@ import unittest
 
 import times, options, asyncdispatch, strutils
 import metronome
+import metronome/scheduler as schedulerApi
 
 proc noop(): Future[void] {.async.} = discard
 
@@ -25,6 +26,41 @@ proc macroErrorHandler(fut: Future[void]) {.gcsafe.} =
 
 proc macroOnceJob(): Future[void] {.async.} =
   macroOnceCalls.inc
+
+test "Public scheduler types remain compatible through both imports":
+  type ExtendedBeater = ref object of schedulerApi.Beater
+    marker: int
+
+  static:
+    doAssert NextRunProc is schedulerApi.NextRunProc
+    doAssert BeaterKind is schedulerApi.BeaterKind
+    # Internal calculation helpers must not become public re-exports.
+    doAssert not declared(intervalNextRun)
+    doAssert not declared(cronNextRun)
+    doAssert not declared(customNextRun)
+    doAssert not declared(onceNextRun)
+
+  let callback: schedulerApi.NextRunProc = proc(
+    current: DateTime
+  ): Option[DateTime] {.closure, gcsafe, raises: [].} =
+    some(current + initDuration(microseconds=1))
+  let publicCallback: NextRunProc = callback
+  let current = dateTime(2026, mJan, 1, 12, 0, 0, 0, utc())
+  let beater: schedulerApi.Beater = initBeater(
+    publicCallback, noop, startTime=some(current)
+  )
+  let extended = ExtendedBeater(
+    kind: schedulerApi.BeaterKind.bkInterval,
+    interval: initTimeInterval(seconds=1),
+    marker: 42
+  )
+
+  check beater.kind == bkCustom
+  check beater.fireTime(none(DateTime), current).get() ==
+    current + initDuration(microseconds=1)
+  check extended of Beater
+  check extended.interval == initTimeInterval(seconds=1)
+  check extended.marker == 42
 
 
 test "endTime":

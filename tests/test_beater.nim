@@ -35,6 +35,49 @@ proc countedAsync(): Future[void] {.async.} =
 proc countedOnce(): Future[void] {.async.} =
   onceLaunches.inc
 
+test "Beater calculation reads mutable schedule fields without changing execution state":
+  let current = dateTime(2026, mJan, 1, 11, 30, 0, 123_456_789, utc())
+  let intervalBeater = initBeater(
+    initTimeInterval(minutes=10), dummyAsync, startTime=some(current),
+    jitter=initTimeInterval(minutes=1)
+  )
+  intervalBeater.interval = initTimeInterval(minutes=20)
+  intervalBeater.jitter = initTimeInterval()
+  check intervalBeater.fireTime(some(current), current).get() ==
+    current + initDuration(minutes=20)
+
+  let cronCurrent = dateTime(2026, mJan, 1, 11, 30, 0, 0, utc())
+  let cronBeater = initBeater(newCron(hour="12", minute="0"), dummyAsync)
+  cronBeater.cron = newCron(hour="14", minute="0")
+  check cronBeater.fireTime(none(DateTime), cronCurrent).get() ==
+    dateTime(2026, mJan, 1, 14, 0, 0, 0, utc())
+  proc fromTime(time: Time): ZonedTime =
+    ZonedTime(time: time, utcOffset: -7200, isDst: false)
+  proc fromAdjTime(time: Time): ZonedTime =
+    ZonedTime(time: time - initDuration(hours=2), utcOffset: -7200, isDst: false)
+  cronBeater.timezone = some(newTimezone("Test/UTC+02", fromTime, fromAdjTime))
+  let zonedNext = cronBeater.fireTime(none(DateTime), cronCurrent).get()
+  check zonedNext == dateTime(2026, mJan, 1, 12, 0, 0, 0, utc())
+  check zonedNext.timezone == utc()
+
+  let empty: NextRunProc = proc(current: DateTime): Option[DateTime] {.
+      gcsafe, raises: []
+    .} = none(DateTime)
+  let customBeater = initBeater(empty, dummyAsync, startTime=some(current))
+  check customBeater.fireTime(none(DateTime), current).isNone
+  customBeater.nextRunProc = proc(current: DateTime): Option[DateTime] {.
+      gcsafe, raises: []
+    .} = some(current + initDuration(nanoseconds=1))
+  check customBeater.fireTime(none(DateTime), current).get() ==
+    current + initDuration(nanoseconds=1)
+
+  for beater in [intervalBeater, cronBeater, customBeater]:
+    check beater.state == bsRunning
+    check beater.lastRun.isNone
+    check beater.nextRun.isNone
+    check beater.runningCount == 0
+    check beater.failures == 0
+
 test "IntervalBeater.$":
   let beater = initBeater(initTimeInterval(seconds=1), dummyAsync)
   check $beater == "Beater(bkInterval,1 second)"

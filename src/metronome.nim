@@ -2,6 +2,10 @@
 ##
 ## A Nim scheduler library for interval, cron, timer, and one-shot jobs.
 ##
+## Internal helpers calculate nominal occurrences from explicit schedule and
+## time inputs. Beaters own jitter, waiting, lifecycle state, and job execution.
+## The calculation helpers are not part of the supported public API.
+##
 ## ## Schedule By Every
 ##
 ## Example usage::

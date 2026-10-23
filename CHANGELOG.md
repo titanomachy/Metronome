@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Internal schedule architecture
+
+- Moved nominal interval, cron, custom, and one-shot calculation into private
+  helpers with explicit inputs and no execution/runtime dependencies. Beaters
+  delegate using their current schedule fields and retain jitter, waiting,
+  lifecycle, and dispatch ownership. Public scheduling APIs and behavior are
+  unchanged.
+- Added regression coverage for mutable schedule fields, direct scheduler type
+  imports, and beater inheritance; documented the internal dependency boundary.
+
 ### Development and regression coverage
 
 - Characterized existing interval alignment, nominal cadence, calendar-relative
