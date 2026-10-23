@@ -6,9 +6,10 @@ The baseline inventory, **Internal Architecture and Dependencies**,
 **Nominal Schedule Calculation**, **Jitter and Deadline Planning**,
 **Execution and Lifecycle Integration**, **Optional Modules and DSL
 Compatibility**, **Deterministic Calculation Tests**, **Execution and Public
-API Regression Tests**, **README and Source Documentation**, and **Examples and
-Changelog** categories are complete. The next category is **Test Discovery,
-Coverage, Packaging, and CI**. The execution checklist is
+API Regression Tests**, **README and Source Documentation**, **Examples and
+Changelog**, and **Test Discovery, Coverage, Packaging, and CI** categories are
+complete. The next category is **Implementation Order and Validation**. The
+execution checklist is
 `PLANS/PLAN-schedule-calculation-execution.md`; `PLANS/PLAN.md` is absent.
 The plan remains ignored local material under `PLANS/`.
 
@@ -524,6 +525,63 @@ Validation on Nim `2.2.12`:
 Only this category is complete; the packaging/CI audit is next. Generated
 documentation, temporary verification harnesses, binaries, caches, and the
 local execution checklist are not committed.
+
+## Test discovery, coverage, packaging, and CI
+
+Completed on 2026-10-24, starting from `dd4c7a1` on a clean `development`
+branch. The calculator suite's discovery, isolated coverage cache, and binary
+ignore were already added with the deterministic-test category. Verified this
+wiring without changing the six-suite coverage list, `src/*` filter, ignores,
+or CI workflows. README and CHANGELOG.md record the verified setup.
+
+Durable documentation and packaging contracts:
+
+- `nimble docs` retains project documentation generation and the private
+  calculator's HTML page so the scheduler's import link resolves. It removes
+  `docs/metronome/private/schedule.idx` before building the API index, keeping
+  private helper symbols out of public API search/navigation. No public page,
+  symbol export, output path, or source documentation needs relocation.
+- Nimble's existing `srcDir = "src"` installation includes the nested private
+  calculator, all public modules, and pinned timezone data. No extra packaging
+  whitelist, dependency, runtime download, or source import path is needed.
+  A disposable installation under `/tmp` was checked byte-for-byte against all
+  source/data files. Consumers outside the checkout compiled and ran with both
+  compilers using only that installed path, `--noNimblePath`, and disabled
+  user/parent/project configuration. Separate root, direct scheduler, cron,
+  timezone, and timer consumers exercised calculation, callback compatibility,
+  named-zone offsets, precise timer targets, and the timer DSL. Core/direct
+  scheduler consumers retain private helpers without importing timer/timezone
+  modules or re-exporting helper symbols.
+- CI continues to pin Nim `2.2.10` and lcov `2.1`, run canonical `nimble docs`
+  and `nimble coverage`, and enforce 80% line coverage. Push/pull-request
+  validation for both branches, master-push-only Pages upload/deployment, and
+  release installation checks remain unchanged. Generated artifacts remain
+  ignored and are never staged. Local coverage uses installed lcov `2.6`.
+
+Validation:
+
+- `nimble test`: all 154 tests pass on Nim `2.2.12` and minimum Nim `2.2.10`,
+  including automatic discovery of `test_schedule_calculation.nim`.
+- `nimble coverage`: all six instrumented suites pass on both compilers.
+  Nim `2.2.12` covers 1951/2244 lines (86.9%); Nim `2.2.10` covers 1986/2271
+  (87.5%). The private calculator covers 52/54 and 56/58 lines respectively;
+  every helper executes. Compiler-generated code changes the reported totals.
+- `nimble docs`: passes on both compilers. Automated artifact checks confirm
+  only private index entries disappear, all public pages remain, the scheduler's
+  private import link resolves, and all 57 canonical scheduler export links are
+  preserved. The 112 known duplicate-suffix link defects remain unchanged.
+- Disposable installed-package smoke checks: all five public import consumers
+  compile and run on both compilers, without using the checkout's source path
+  or changing the user's installed package.
+- `nimble check` passes. `nimble build` was attempted and reports "Nothing to
+  build" under the existing source-library waiver; suites and installed
+  consumers verify compilation. `git diff --check` passes.
+
+Only this category is complete. **Implementation Order and Validation** is
+next; its checklist and the completion/deferred-work category remain untouched.
+Examples and public NimDoc content remain accurate and unchanged. Generated
+documentation, coverage reports/badge, caches, binaries, temporary acceptance
+scripts, and the updated local plan are not committed.
 
 ## Baseline snapshot
 

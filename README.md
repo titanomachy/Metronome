@@ -871,8 +871,9 @@ Install `lcov` and `genhtml`, then run the canonical coverage task:
 nimble coverage
 ```
 
-The task runs all instrumented tests, captures and filters project coverage,
-generates `coverage_html/index.html`, and updates `docs/coverage.svg`. CI invokes
+The task runs all six suites with separate compiler caches and includes the
+private nominal calculator in source coverage. It generates
+`coverage_html/index.html` and updates `docs/coverage.svg`. CI invokes
 the same task, requires at least 80% line coverage, and publishes the generated
 badge with the documentation. Generated coverage files are not committed.
 
@@ -890,7 +891,8 @@ ignored `docs/` folder. You can open `docs/metronome.html` for the scheduler API
 `docs/timezones.html` for named IANA timezone support, or `docs/timers.html`
 for systemd-style calendar timers. On pushes to `master`, CI deploys this folder
 to GitHub Pages as an artifact instead of committing generated files to the
-repository.
+repository. The private calculator is omitted from the API index; its generated
+implementation page remains available through module import links.
 
 ### Updating the embedded timezone database
 

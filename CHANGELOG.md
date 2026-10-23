@@ -53,6 +53,11 @@
 
 ### Development and regression coverage
 
+- Verified discovery and instrumented coverage of all six suites on the local
+  and minimum supported Nim versions, plus installation of every public module
+  and the private calculator in a disposable package environment. Omitted private
+  calculator symbols from the generated API index while retaining its linked
+  implementation page. CI coverage and deployment rules are unchanged.
 - Added execution regressions for waiting on published jittered deadlines,
   nominal cadence after dispatch, active async completion while paused, and
   delayed failure reporting after `stopAll`. Strengthened sub-millisecond and

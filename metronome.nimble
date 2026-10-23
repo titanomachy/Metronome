@@ -36,4 +36,8 @@ task docs, "Generate HTML documentation":
   exec "nim doc --project --outDir:docs --threads:on --index:on src/metronome.nim"
   exec "nim doc --outDir:docs --threads:on --index:on src/metronome/timezones.nim"
   exec "nim doc --outDir:docs --threads:on --index:on src/metronome/timers.nim"
+  # Keep the implementation page for module import links, but omit its symbols
+  # from the supported API index generated below.
+  if fileExists("docs/metronome/private/schedule.idx"):
+    rmFile("docs/metronome/private/schedule.idx")
   exec "nim buildIndex --out:docs/theindex.html docs"
