@@ -214,8 +214,11 @@
 ## ## Calculate Next Run Times
 ##
 ## Use fireTime to inspect the next scheduled run without starting a scheduler.
-## This is useful for tests, dashboards, and checking interval or cron behavior
-## deterministically.::
+## Built-in nominal calculations are deterministic for fixed schedule and time
+## inputs. Interval jitter samples randomness, and custom callbacks may capture
+## mutable state, so repeated fireTime calls can return different results.
+##
+## Example:
 ##
 ##     import metronome, times, options, asyncdispatch
 ##
@@ -229,6 +232,19 @@
 ##     )
 ##
 ##     echo beater.fireTime(none(DateTime), current).get()
+##
+## With no previous occurrence, intervals align using their whole-millisecond
+## length at startTime; an exact past cadence boundary advances a full interval.
+## With a previous nominal occurrence, the original calendar-relative interval
+## is added to it, even if the result is overdue. Jitter and job duration do not
+## shift that nominal cadence.
+##
+## Cron queries from current independently of startTime and the prior occurrence,
+## and returns in current's timezone. Custom callbacks return the first instant
+## strictly after their input or none(DateTime) when exhausted. A future custom
+## startTime queries one nanosecond before that bound to include it. Custom and
+## one-shot targets retain their supplied precision and timezone; a pending
+## one-shot returns its deadline even when overdue. endTime is inclusive.
 ##
 ## ## Error Handling
 ##

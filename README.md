@@ -563,8 +563,9 @@ nim c --threads:on -r examples/example_async_jobs.nim
 ### Calculate Next Run Times
 
 Use `fireTime` to inspect the next scheduled run without starting a scheduler.
-This is useful for tests, dashboards, and checking interval or cron behavior
-deterministically.
+Built-in nominal calculations are deterministic for fixed schedule and time
+inputs. Interval jitter samples randomness, and custom callbacks can capture
+mutable state, so repeated `fireTime` calls can return different results.
 
 ```nim
 import metronome, times, options, asyncdispatch
@@ -580,6 +581,21 @@ let beater = initBeater(
 
 echo beater.fireTime(none(DateTime), current).get()
 ```
+
+Here `none(DateTime)` requests initial alignment: a past interval anchor uses
+the interval's length in whole milliseconds at `startTime` to find the next
+cadence boundary. An exact past boundary advances a full interval. Supplying
+`some(previousNominalTime)` instead adds the original `TimeInterval` to that
+occurrence, even if the result is behind `current`. Calendar months and years
+retain Nim's calendar arithmetic; jitter and job duration do not shift cadence.
+
+Cron queries from `current`, independently of `startTime` and the previous
+occurrence, and returns in `current`'s timezone. Custom callbacks return the
+first instant strictly after their input, or `none(DateTime)` when exhausted.
+A future custom `startTime` queries one nanosecond before that bound to allow
+an occurrence exactly at it. Custom and one-shot targets retain their supplied
+precision and timezone; a pending one-shot returns its deadline even if overdue.
+Candidates exactly at `endTime` are allowed.
 
 ### Error Handling
 

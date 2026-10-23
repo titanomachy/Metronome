@@ -11,6 +11,11 @@
   unchanged.
 - Added regression coverage for mutable schedule fields, direct scheduler type
   imports, and beater inheritance; documented the internal dependency boundary.
+- Verified the nominal calculation contracts with regressions for fractional
+  millisecond alignment, sub-millisecond intervals, leap-year calendar cadence,
+  cron caller timezones and inclusive bounds, stateful custom callbacks, and
+  precise one-shot deadlines. Clarified deterministic built-in calculation and
+  callback contracts in the README and NimDoc; scheduling behavior is unchanged.
 
 ### Development and regression coverage
 

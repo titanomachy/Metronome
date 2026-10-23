@@ -8,6 +8,8 @@ from ../cron/cron import Cron, getNext
 
 proc intervalMilliseconds*(startTime: DateTime, interval: TimeInterval): int64 =
   ## Measure a calendar-relative interval at the supplied anchor.
+  ## Months and years keep std/times arithmetic; only the resulting duration
+  ## is measured in whole milliseconds (including truncation below 1 ms).
   (startTime + interval - startTime).inMilliseconds
 
 proc intervalNextRun*(
@@ -19,6 +21,10 @@ proc intervalNextRun*(
   ## prev is the previous nominal occurrence, never an actual launch or jittered
   ## deadline. Initial alignment measures milliseconds at startTime; subsequent
   ## occurrences add the calendar-relative interval even when still overdue.
+  ## An initial query at a past cadence boundary selects the next full interval.
+  ## Preserve current's fractional milliseconds when adding the remaining wait.
+  ## Non-positive measured lengths return current for a past anchor; they do
+  ## not change future-start selection or calendar-relative addition to prev.
   some(
     if prev.isNone:
       if startTime >= current:
@@ -42,6 +48,7 @@ proc cronNextRun*(
 ): Option[DateTime] =
   ## Cron queries current, independently of the beater's start or prior run.
   ## Matching in a configured zone returns an instant in the caller's zone.
+  ## The existing evaluator owns boundary rounding and matching semantics.
   if timezone.isSome:
     let zonedNow = current.inZone(timezone.get())
     let zonedNext = cron.getNext(zonedNow)
@@ -63,6 +70,8 @@ proc customNextRun*(
   ## in scheduler without an import cycle. The callback is supplied directly.
   ## It must be non-nil and return the first instant strictly after its input
   ## or none. Querying just before a future start includes that lower bound.
+  ## The caller validates non-nil callbacks. Invoke once without rounding or
+  ## changing the returned timezone; captured mutable state can affect results.
   if startTime > current:
     nextRunProc(startTime - initDuration(nanoseconds=1))
   else:
@@ -73,6 +82,7 @@ proc onceNextRun*(
   prev: Option[DateTime]
 ): Option[DateTime] =
   ## A pending one-shot retains its precise deadline even when overdue.
+  ## Any previous occurrence means it has been consumed; no clock is needed.
   if prev.isNone:
     some(deadline)
   else:

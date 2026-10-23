@@ -16,6 +16,15 @@ proc nilFuture(): Future[void] =
 proc shortThread() {.thread, gcsafe.} =
   discard
 
+proc fixedTimezone(name: string, offset: int): Timezone =
+  # std/times offsets are seconds west of UTC. No host zoneinfo is consulted.
+  proc fromTime(time: Time): ZonedTime =
+    ZonedTime(time: time, utcOffset: offset, isDst: false)
+  proc fromAdjTime(time: Time): ZonedTime =
+    ZonedTime(time: time + initDuration(seconds=offset),
+      utcOffset: offset, isDst: false)
+  newTimezone(name, fromTime, fromAdjTime)
+
 var beaterHandlerCalls = 0
 var fallbackHandlerCalls = 0
 var pauseLaunches = 0
@@ -185,6 +194,56 @@ test "IntervalBeater.fireTime | non-positive intervals retain existing behavior"
     check futureBeater.fireTime(none(DateTime), current).get() == future
     check pastBeater.fireTime(some(past), current).get() == past + interval
 
+test "IntervalBeater.fireTime | initial alignment retains fractional milliseconds":
+  let start = dateTime(2026, mDec, 31, 23, 59, 59, 973_456_789, utc())
+  let current = start + initDuration(milliseconds=25, nanoseconds=321_000)
+  let beater = initBeater(
+    initTimeInterval(milliseconds=10), dummyAsync, startTime=some(start)
+  )
+  let actual = beater.fireTime(none(DateTime), current).get()
+
+  # Elapsed milliseconds are truncated; retain the query's remaining fraction.
+  check actual == dateTime(2027, mJan, 1, 0, 0, 0, 3_777_789, utc())
+  check actual == current + initDuration(milliseconds=5)
+  check beater.fireTime(some(start), current).get() ==
+    start + initDuration(milliseconds=10)
+
+test "IntervalBeater.fireTime | sub-millisecond intervals preserve prior progression":
+  let start = dateTime(2026, mJan, 1, 12, 0, 0, 123_456_789, utc())
+  let current = start + initDuration(seconds=1)
+  let beater = initBeater(
+    initTimeInterval(microseconds=500), dummyAsync, startTime=some(start)
+  )
+
+  # Initial interval length is zero whole milliseconds; a prior occurrence
+  # still advances by the original TimeInterval at its full precision.
+  check beater.fireTime(none(DateTime), current).get() == current
+  check beater.fireTime(none(DateTime), start).get() == start
+  check beater.fireTime(none(DateTime), start - initDuration(seconds=1)).get() == start
+  check beater.fireTime(some(start), current).get() ==
+    start + initDuration(microseconds=500)
+
+test "IntervalBeater.fireTime | leap years retain anchor length and calendar progression":
+  let monthStart = dateTime(2024, mFeb, 1, 0, 0, 0, 0, utc())
+  let monthCurrent = dateTime(2024, mMar, 1, 0, 0, 0, 0, utc())
+  let monthly = initBeater(
+    initTimeInterval(months=1), dummyAsync, startTime=some(monthStart)
+  )
+  check monthly.fireTime(none(DateTime), monthCurrent).get() ==
+    dateTime(2024, mMar, 30, 0, 0, 0, 0, utc())
+  check monthly.fireTime(some(monthCurrent), monthCurrent).get() ==
+    dateTime(2024, mApr, 1, 0, 0, 0, 0, utc())
+
+  let yearStart = dateTime(2023, mJan, 1, 0, 0, 0, 0, utc())
+  let yearCurrent = dateTime(2024, mJul, 1, 0, 0, 0, 0, utc())
+  let yearly = initBeater(
+    initTimeInterval(years=1), dummyAsync, startTime=some(yearStart)
+  )
+  check yearly.fireTime(none(DateTime), yearCurrent).get() ==
+    dateTime(2024, mDec, 31, 0, 0, 0, 0, utc())
+  check yearly.fireTime(some(dateTime(2024, mJan, 1, 0, 0, 0, 0, utc())),
+    yearCurrent).get() == dateTime(2025, mJan, 1, 0, 0, 0, 0, utc())
+
 test "IntervalBeater.fireTime | endTime equal to next run is allowed":
   let current = dateTime(2026, mJan, 1, 12, 0, 0, 0, utc())
   let endTime = dateTime(2026, mJan, 1, 12, 5, 0, 0, utc())
@@ -257,6 +316,34 @@ test "CronBeater.fireTime | current time determines the query despite startTime 
   check beater.fireTime(none(DateTime), current).get() == expected
   check beater.fireTime(some(futureStart), current).get() == expected
 
+test "CronBeater.fireTime | configured zone returns in caller zone with inclusive bounds":
+  let callerZone = fixedTimezone("Test/UTC-05", 5 * 3600)
+  let scheduleZone = fixedTimezone("Test/UTC+02", -2 * 3600)
+  let current = dateTime(2026, mJan, 1, 6, 30, 0, 0, callerZone)
+  let deadline = dateTime(2026, mJan, 1, 12, 0, 0, 0, utc())
+  let cron = newCron(hour="14", minute="0")
+  let beater = initBeater(
+    cron, dummyAsync, timezone=some(scheduleZone), endTime=some(deadline)
+  )
+  let actual = beater.fireTime(none(DateTime), current).get()
+
+  check actual == deadline
+  check actual.hour == 7
+  check actual.timezone == callerZone
+  # The underlying cron evaluator includes an already matching minute.
+  check beater.fireTime(some(actual), actual).get() == actual
+
+  let tooLate = initBeater(
+    cron, dummyAsync, timezone=some(scheduleZone),
+    endTime=some(deadline - initDuration(nanoseconds=1))
+  )
+  check tooLate.fireTime(none(DateTime), current).isNone
+
+  let callerCron = initBeater(newCron(hour="12", minute="0"), dummyAsync)
+  let callerNext = callerCron.fireTime(none(DateTime), current).get()
+  check callerNext == dateTime(2026, mJan, 1, 17, 0, 0, 0, utc())
+  check callerNext.timezone == callerZone
+
 test "OnceBeater.fireTime":
   let scheduled = dateTime(2026, mJan, 1, 12, 0, 0, 0, utc())
   let beater = initBeater(scheduled, dummyAsync)
@@ -289,6 +376,8 @@ test "Custom Beater rejects a nil callback":
   let callback: NextRunProc = nil
   expect ValueError:
     discard initBeater(callback, dummyAsync)
+  expect ValueError:
+    discard initBeater(callback, shortThread)
 
 test "Custom Beater queries just before a future start and otherwise from current time":
   let callback: NextRunProc = proc(current: DateTime): Option[DateTime] {.
@@ -319,6 +408,59 @@ test "Custom Beater keeps precise targets and includes the upper bound":
 
   check beater.fireTime(none(DateTime), current).get() == deadline
   check beater.fireTime(none(DateTime), current + initDuration(nanoseconds=1)).isNone
+
+test "Custom Beater invokes a stateful callback once and preserves its result zone":
+  proc main() =
+    let current = dateTime(2026, mJan, 1, 12, 0, 0, 0, utc())
+    let targetZone = fixedTimezone("Test/UTC+0545", -(5 * 3600 + 45 * 60))
+    let target = (current + initDuration(microseconds=500, nanoseconds=123)).inZone(targetZone)
+    var queries: seq[DateTime]
+    let callback: NextRunProc = proc(query: DateTime): Option[DateTime] {.
+        gcsafe, raises: []
+      .} =
+      queries.add(query)
+      if queries.len == 1: some(target) else: none(DateTime)
+    let beater = initBeater(
+      callback, dummyAsync, startTime=some(current), endTime=some(target.utc())
+    )
+    let actual = beater.fireTime(none(DateTime), current).get()
+    check actual == target
+    check actual.nanosecond == 500_123
+    check actual.timezone == targetZone
+    check queries == @[current]
+    # Identical inputs need not repeat the result of a user callback.
+    check beater.fireTime(none(DateTime), current).isNone
+    check queries == @[current, current]
+    check beater.nextRun.isNone
+    check beater.lastRun.isNone
+
+  main()
+
+test "Built-in Beater calculations repeat for fixed inputs without updating execution":
+  let current = dateTime(2026, mJan, 1, 12, 35, 0, 0, utc())
+  let anchor = dateTime(2026, mJan, 1, 12, 0, 0, 0, utc())
+  let deadline = current - initDuration(nanoseconds=123)
+  let zone = fixedTimezone("Test/UTC+02", -2 * 3600)
+  let beaters = [
+    initBeater(initTimeInterval(minutes=10), dummyAsync, startTime=some(anchor)),
+    initBeater(newCron(hour="14", minute="0"), dummyAsync, timezone=some(zone)),
+    initBeater(deadline.inZone(zone), dummyAsync)
+  ]
+
+  for beater in beaters:
+    for prev in [none(DateTime), some(anchor)]:
+      let first = beater.fireTime(prev, current)
+      check beater.fireTime(prev, current) == first
+    check beater.state == bsRunning
+    check beater.lastRun.isNone
+    check beater.nextRun.isNone
+    check beater.runningCount == 0
+    check beater.failures == 0
+
+  let once = beaters[2].fireTime(none(DateTime), current).get()
+  check once == deadline
+  check once.nanosecond == 999_999_877
+  check once.timezone == zone
 
 test "Beater calculation exhaustion clears nextRun without stopping or launching":
   let empty: NextRunProc = proc(current: DateTime): Option[DateTime] {.

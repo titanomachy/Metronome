@@ -34,10 +34,11 @@ type
 
   NextRunProc* = proc (current: DateTime): Option[DateTime] {.
     closure, gcsafe, raises: []
-  .}
-  ## Calculates the first scheduled instant strictly later than current.
-  ## Optional scheduling modules can use this callback without coupling their
-  ## parser or data to the Metronome core.
+  .} ## Calculates the first scheduled instant strictly later than current.
+    ## Return none(DateTime) when the schedule is empty or exhausted. Callbacks
+    ## may capture mutable state; this type does not require deterministic results.
+    ## Optional scheduling modules can use this callback without coupling their
+    ## parser or data to the Metronome core.
 
 proc toAsync(p: BeaterThreadProc): BeaterAsyncProc =
   result =
@@ -329,8 +330,10 @@ proc initBeater*(
 ): Beater =
   ## Initialize a custom-schedule Beater.
   ##
-  ## The callback must return the first instant strictly later than its input.
-  ## startTime and endTime constrain the resulting schedule.
+  ## The callback must return the first instant strictly later than its input,
+  ## or none(DateTime) when exhausted. A future startTime queries the callback
+  ## at startTime minus one nanosecond, allowing that exact lower bound.
+  ## endTime is inclusive. Callback results retain their precision and timezone.
   if nextRunProc.isNil:
     raise newException(ValueError, "nextRunProc cannot be nil")
   Beater(
@@ -364,6 +367,7 @@ proc initBeater*(
   errorHandler: JobErrorHandler = nil,
 ): Beater =
   ## Initialize a thread-backed custom-schedule Beater.
+  ## The callback follows the same contract and bounds as the async overload.
   if errorHandler != nil:
     raise newException(ValueError, "thread-backed beaters do not support error handlers")
   initBeater(
@@ -503,17 +507,23 @@ proc fireTime*(
   ##
   ## For bkInterval, it uses these rules:
   ##
-  ## * For the 1st run,
-  ##   * Choose `startTime` when it is equal to or later than `now`.
-  ##   * Choose the next future `startTime + N * interval` when `startTime`
-  ##     is earlier than `now`.
-  ## * For the rest of runs,
-  ##   * Choose `prev + interval`.
+  ## * Without `prev`, choose `startTime` when it is at or after `now`.
+  ##   Otherwise measure the interval at `startTime` in whole milliseconds
+  ##   and add the remaining cadence wait to `now`. An exact past cadence
+  ##   boundary advances a full interval; non-positive lengths return `now`.
+  ## * With `prev`, add the calendar-relative interval to that nominal time,
+  ##   even when the result is behind `now`. Jitter and job duration do not
+  ##   become part of the nominal cadence.
   ##
   ## Cron beaters delegate to cron matching, optionally in their configured
-  ## timezone. Custom beaters delegate to their strictly-future next-run
-  ## callback. One-shot beaters return their scheduled time only while `prev`
-  ## is none.
+  ## timezone and returning in `now`'s timezone; cron ignores `prev` and
+  ## `startTime`. Custom beaters query their callback from `now`, or one
+  ## nanosecond before a future `startTime`, independently of `prev`.
+  ## One-shot beaters return their precise scheduled time, even if overdue,
+  ## only while `prev` is none.
+  ##
+  ## Built-in nominal calculations are deterministic for fixed inputs. A custom
+  ## callback may carry mutable state, and interval jitter samples the RNG.
   ##
   ## If `self.endTime` is set and the computed fire time is later than it,
   ## none(DateTime) is returned. A fire time exactly equal to `endTime` is still

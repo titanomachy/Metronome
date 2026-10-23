@@ -2,8 +2,9 @@
 
 ## Schedule calculation refactor progress
 
-The baseline inventory and **Internal Architecture and Dependencies** categories
-are complete. The next category is **Nominal Schedule Calculation**. The
+The baseline inventory, **Internal Architecture and Dependencies**, and
+**Nominal Schedule Calculation** categories are complete. The next category is
+**Jitter and Deadline Planning**. The
 execution checklist is
 `PLANS/PLAN-schedule-calculation-execution.md`; `PLANS/PLAN.md` is absent.
 The plan remains ignored local material under `PLANS/`.
@@ -33,7 +34,7 @@ and check the effective upper bound; consolidating that deadline path belongs
 to a later category. Optional timer/timezone modules and their data are
 unchanged. No dependency, backend, package version, or scheduling policy changed.
 
-Category validation on 2026-10-23:
+Internal-architecture validation on 2026-10-23:
 
 - `nimble test`: 118 passing tests on both Nim `2.2.12` and the minimum
   supported Nim `2.2.10`; focused beater and scheduler suites also pass.
@@ -48,11 +49,54 @@ Category validation on 2026-10-23:
 - `nimble build`: attempted; no binary target, with the user-confirmed waiver
   described below. `git diff --check` passes.
 
-Only the internal-architecture checklist is completed in this category. The
-dedicated calculation test matrix, shared deadline planning, broader execution
-integration, and final packaging/CI checks remain in their later categories.
+The dedicated calculation test matrix, shared deadline planning, broader
+execution integration, and final packaging/CI checks remain in their later
+categories.
 Generated documentation, coverage reports/badge, caches, test binaries, and
 the local execution plan remain ignored and are not committed.
+
+## Nominal calculation contract verification
+
+Completed on 2026-10-23, starting from `124ad09` on a clean `development`
+branch. The prior category had already extracted all nominal arithmetic into
+the private helpers. Reviewing every category acceptance criterion required no
+further arithmetic, API, or dependency changes. Both inspection and execution
+still use those same authoritative implementations through `nominalFireTime`.
+
+Six focused regressions in `tests/test_beater.nim` confirm fractional-millisecond
+alignment across a year boundary, sub-millisecond interval progression,
+leap-year month/year cadence, configured cron zones returning in a non-UTC
+caller's zone with inclusive upper bounds, single invocation of a stateful
+custom callback, and repeated built-in results without execution-state changes.
+Custom and overdue one-shot targets preserve their returned timezone and
+nanosecond precision. Nil custom callbacks are rejected by both async and
+thread-backed constructors. Existing tests retain start/previous-time behavior,
+non-positive intervals, callback exhaustion, and upper-bound coverage.
+
+README, top-level NimDoc, `fireTime`, `NextRunProc`, and the private helper
+comments now state the nominal calculation contracts. `NextRunProc`'s comment
+is attached to its declaration so it appears on the generated scheduler page;
+its type, pragmas, and public identity are unchanged. Built-in nominal results
+are deterministic for fixed inputs; callbacks may hold mutable state and public
+`fireTime` may sample interval jitter. Example code and output are unchanged.
+
+Validation:
+
+- `nimble test`: 124 passing tests on Nim `2.2.12` and minimum Nim `2.2.10`;
+  the focused beater suite has 43 passing tests.
+- `nimble coverage`: passes at 86.5% (1904/2202 lines), above the 80% minimum.
+- `nimble docs`: passes; inspected root/scheduler contract text and the
+  generated timezone/timer pages remain present.
+- Calculator-only smoke check: compiles and runs with threads disabled.
+- Fire-time example: compiles and runs with its existing three timestamps.
+- `nimble build`: attempted, returns "Nothing to build"; retain the previously
+  confirmed source-library waiver, with compilation covered by tests/examples.
+- `git diff --check`: passes. Validation uses the installed compilers and
+  isolated Nimble/compiler caches under `/tmp`, without network access.
+
+Only the nominal-calculation checklist is completed in this category. Jitter
+planning, runtime integration, the dedicated calculator suite, and final
+packaging remain pending. Generated artifacts and the local plan stay ignored.
 
 ## Baseline snapshot
 
@@ -158,6 +202,12 @@ With `prev`, the interval is added unchanged, including zero or negative values.
 Positive intervals below one millisecond also have zero measured initial length.
 Do not add validation or change the resulting live-loop behavior during extraction.
 
+Initial alignment truncates elapsed time and interval length to whole
+milliseconds, then adds the remaining wait to the original query. This retains
+the query's fractional milliseconds and can differ from an exact anchor-based
+duration calculation. Subsequent progression keeps the original TimeInterval
+precision. Do not normalize either path while separating calculation.
+
 Cron's configured timezone converts the query into that zone and converts the
 result back to the caller's timezone. Its current evaluator may return the query
 itself at a matching boundary; it does not implement custom callbacks'
@@ -240,9 +290,10 @@ without changing execution state. `tests/test_scheduler.nim` verifies direct
 and root public type imports, callback compatibility, beater inheritance, and
 that helpers are not re-exported. The existing cron, timezone, and timer suites
 remain in place. Arithmetic cases use fixed UTC dates. A dedicated calculation
-suite and broader boundary matrix remain later work. README, NimDoc, and
-fire-time examples retain the existing public imports and API. No example code
-or documented output needs changing for this category.
+suite and broader boundary matrix remain later work. The nominal-calculation
+category extends the beater regressions without introducing that suite. README,
+NimDoc, and fire-time examples retain the existing public imports and API. No
+example code or documented output needs changing for these categories.
 
 Metronome is a source library. Compilation is exercised by the test suites;
 validation does not require a package binary target. In this category,
