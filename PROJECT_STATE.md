@@ -1,807 +1,231 @@
 # Metronome project state
 
-## Schedule calculation refactor progress
+## Refactor scope and progress
 
-The baseline inventory, **Internal Architecture and Dependencies**,
-**Nominal Schedule Calculation**, **Jitter and Deadline Planning**,
-**Execution and Lifecycle Integration**, **Optional Modules and DSL
-Compatibility**, **Deterministic Calculation Tests**, **Execution and Public
-API Regression Tests**, **README and Source Documentation**, **Examples and
-Changelog**, and **Test Discovery, Coverage, Packaging, and CI** categories are
-complete. The next category is **Implementation Order and Validation**. The
-execution checklist is
-`PLANS/PLAN-schedule-calculation-execution.md`; `PLANS/PLAN.md` is absent.
-The plan remains ignored local material under `PLANS/`.
+The execution checklist is `PLANS/PLAN-schedule-calculation-execution.md`;
+`PLANS/PLAN.md` is absent. Categories 02–13 are complete. The next category is
+**Completion Criteria and Deferred Work** (Category 14), which remains pending.
+Plans stay ignored local material.
+`specs/` currently contains no files.
 
-The internal boundary is `src/metronome/private/schedule.nim`. It provides
+Keep work on `development`, package version `0.5.2`, Nim `>= 2.2.10`, the standard
+`asyncdispatch` runtime, and dependency-free installation. This refactor adds no
+release, tag, backend, compiler migration, runtime downloads, or new scheduling
+policy. Metronome is a source library: the user confirmed that tests and examples
+provide compilation validation; do not add a binary target to satisfy
+`nimble build` (which reports "Nothing to build").
+
+## Architecture and interfaces
+
+`src/metronome/private/schedule.nim` owns explicit-input nominal calculation:
 `intervalMilliseconds`, `intervalNextRun`, `cronNextRun`, `customNextRun`,
-`onceNextRun`, and the inclusive `withinEndTime` filter, using only explicit
-inputs, the standard library, and the existing cron evaluator. These helpers
-are not re-exported by `metronome` or `metronome/scheduler` and are not supported
-application APIs. Built-in calculations are deterministic for fixed inputs;
-custom callbacks may capture mutable state.
-
-`nominalFireTime` remains a thin variant-dispatch adapter. It reads the current
-exported beater fields on every query and passes values directly to helpers.
-There is no cached schedule model, copied cron table, or newly allocated
-callback closure per occurrence. `NextRunProc` stays defined in `scheduler.nim`,
-with its existing `closure, gcsafe, raises: []` contract; the private custom
-helper accepts the identical structural proc signature to avoid an import
-cycle or public type relocation. `BeaterKind` and the public `Beater` variant
-object, including `RootObj` inheritance, remain defined in the scheduler.
-
-The scheduler retains lifecycle, job callbacks/futures, throttling, error state,
-actual launch timestamps, resume/pause tracking, and the beater-owned jitter
-RNG. Interval-length measurement is shared with jitter, but random sampling
-stays in `applyJitter`. Private scheduler helper `planFireTime` returns
-`Option[tuple[nominal, effective: DateTime]]` and supplies both `fireTime` and
-`fire`. It filters the nominal candidate before sampling, applies jitter once,
-and filters the effective deadline using the same inclusive upper bound. The
-live loop retains the nominal time across waiting and advances cadence from it
-after a launch or throttling. Optional timer/timezone modules and their data are
-unchanged. No dependency, backend, package version, or scheduling policy changed.
-
-Internal-architecture validation on 2026-10-23:
-
-- `nimble test`: 118 passing tests on both Nim `2.2.12` and the minimum
-  supported Nim `2.2.10`; focused beater and scheduler suites also pass.
-- `nimble coverage` (Nim `2.2.12`): passes, 86.5% (1902/2200 lines); the private
-  calculator is included in the existing coverage filter and instrumented suites.
-- `nimble docs`: passes; public `NextRunProc` remains on the scheduler page and
-  the root export link still resolves. Generated timezone/timer pages remain.
-- A temporary calculator-only consumer compiles and runs with `--threads:off`,
-  imports no scheduler/runtime, and exercises all helper entry points.
-- The fire-time example compiles with threads enabled and retains its three
-  expected interval/window/cron timestamps. Its source and output are unchanged.
-- `nimble build`: attempted; no binary target, with the user-confirmed waiver
-  described below. `git diff --check` passes.
-
-The dedicated calculation test matrix is recorded below; final packaging/CI
-checks remain in their later category.
-Generated documentation, coverage reports/badge, caches, test binaries, and
-the local execution plan remain ignored and are not committed.
-
-## Nominal calculation contract verification
-
-Completed on 2026-10-23, starting from `124ad09` on a clean `development`
-branch. The prior category had already extracted all nominal arithmetic into
-the private helpers. Reviewing every category acceptance criterion required no
-further arithmetic, API, or dependency changes. Both inspection and execution
-still use those same authoritative implementations through `nominalFireTime`.
-
-Six focused regressions in `tests/test_beater.nim` confirm fractional-millisecond
-alignment across a year boundary, sub-millisecond interval progression,
-leap-year month/year cadence, configured cron zones returning in a non-UTC
-caller's zone with inclusive upper bounds, single invocation of a stateful
-custom callback, and repeated built-in results without execution-state changes.
-Custom and overdue one-shot targets preserve their returned timezone and
-nanosecond precision. Nil custom callbacks are rejected by both async and
-thread-backed constructors. Existing tests retain start/previous-time behavior,
-non-positive intervals, callback exhaustion, and upper-bound coverage.
-
-README, top-level NimDoc, `fireTime`, `NextRunProc`, and the private helper
-comments now state the nominal calculation contracts. `NextRunProc`'s comment
-is attached to its declaration so it appears on the generated scheduler page;
-its type, pragmas, and public identity are unchanged. Built-in nominal results
-are deterministic for fixed inputs; callbacks may hold mutable state and public
-`fireTime` may sample interval jitter. Example code and output are unchanged.
-
-Validation:
-
-- `nimble test`: 124 passing tests on Nim `2.2.12` and minimum Nim `2.2.10`;
-  the focused beater suite has 43 passing tests.
-- `nimble coverage`: passes at 86.5% (1904/2202 lines), above the 80% minimum.
-- `nimble docs`: passes; inspected root/scheduler contract text and the
-  generated timezone/timer pages remain present.
-- Calculator-only smoke check: compiles and runs with threads disabled.
-- Fire-time example: compiles and runs with its existing three timestamps.
-- `nimble build`: attempted, returns "Nothing to build"; retain the previously
-  confirmed source-library waiver, with compilation covered by tests/examples.
-- `git diff --check`: passes. Validation uses the installed compilers and
-  isolated Nimble/compiler caches under `/tmp`, without network access.
-
-That category completed only the nominal-calculation checklist. Deadline
-planning is recorded below; the broader lifecycle audit, dedicated calculator
-suite, and final packaging remain pending. Generated artifacts and the local
-plan stay ignored.
-
-## Jitter and deadline planning
-
-Completed on 2026-10-23, starting from `4ed61d0` on a clean `development`
-branch. Both public inspection and live execution now call `planFireTime`.
-This scheduler-private adapter retains nominal and effective times without a
-new public type, schedule model, callback allocation, or RNG interface. Nominal
-arithmetic remains in the execution-independent private calculator. Waiting,
-launching, throttling, pause/resume handling, and all other lifecycle behavior
-stay in the existing execution path.
-
-Jitter arithmetic is unchanged: interval-only, measured relative to each
-nominal occurrence using calendar-relative `TimeInterval` arithmetic, truncated
-to milliseconds, ignored when non-positive, capped at `high(int)`, and sampled
-inclusively from zero through that cap. A nominal candidate rejected by
-`endTime` consumes no sample; a jittered candidate rejected afterward consumes
-one. Both bounds are inclusive. Public `fireTime` advances the beater's RNG
-when jitter applies and does not reserve a deadline or set runtime `nextRun`.
-Independent preview and execution calls can sample different effective times.
-
-Six added regressions in `tests/test_beater.nim` cover both jitter endpoints,
-one sample per preview, non-positive/sub-millisecond windows without sampling,
-non-interval schedules without sampling, precision/timezone retention,
-leap-year month-relative windows and the existing integer cap, matching
-inspection/runtime bounds, and nominal cadence after launches and throttling.
-Tests use standard-library `privateAccess` to control the beater RNG; no public
-seed API is added. An overdue prior nominal time supplied through the existing
-resume input makes the cadence regression independent of wall-clock sleeps.
-Completed-job callbacks are allowed an event-loop turn before checking tracking
-cleanup. The dedicated calculation suite remains in its later category.
-
-README, top-level NimDoc, `fireTime`, and `nextRun` now clarify preview RNG
-effects, effective pending deadlines, calendar-relative jitter, and bounds.
-The current architecture diagram and example code/output remain accurate and
-unchanged. The changelog records the behavior-preserving consolidation.
-
-Validation:
-
-- Baseline `nimble test`: 124 passing tests on Nim `2.2.12`.
-- Final `nimble test`: 130 passing tests on Nim `2.2.12` and minimum supported
-  Nim `2.2.10`; the focused beater suite has 49 passing tests.
-- `nimble coverage`: passes at 86.5% (1905/2202 lines), above the 80% minimum.
-- `nimble docs`: passes; generated root/scheduler text is present, the private
-  planner is absent from public symbol documentation, and timezone/timer pages
-  remain present.
-- Fire-time example: compiles and runs with its existing three timestamps.
-- `nimble build`: attempted, returns "Nothing to build"; retain the previously
-  confirmed source-library waiver, using tests/examples for compilation.
-- `git diff --check`: passes. Validation uses installed compilers and isolated
-  Nimble/compiler caches under `/tmp`, without network access.
-
-Only the jitter/deadline checklist is completed here. No broader lifecycle,
-optional-module, dedicated-suite, or packaging category was started. Generated
-docs, coverage reports/badge, caches, binaries, and the local plan stay ignored.
-
-## Execution and lifecycle integration
-
-Completed on 2026-10-23, starting from `2a5aa24` on a clean `development`
-branch. The audit confirmed that the extracted calculation boundary, shared
-planner, and execution path already satisfy the lifecycle contracts. The only execution
-consolidation is one nominal-cadence update after dispatch or throttling,
-replacing duplicate assignments. No new execution layer, clock interface,
-runtime dependency, cancellation policy, or restart guard is introduced.
-
-Durable contracts verified by this category:
-
-- `nominalFireTime` remains a thin adapter reading current schedule fields.
-  The calculator never reads the clock; constructors and the execution side
-  supply query, RNG seed, resume, launch, and error timestamps.
-- `fire` publishes effective deadlines, waits with the existing clock and
-  pause-generation checks, checks throttling, and uses the existing normalized
-  launch/watch path. Positive sub-millisecond waits still sleep and recheck.
-  Pending waits stay capped at 100 ms; polling stays at 100 ms for paused
-  beaters, 10 ms for workers, and 1000 ms for scheduler idle.
-- Immediate pause/resume invalidates the old wait even if state is running
-  again at its next check. Interval cadence then advances from resume time;
-  pending one-shots retain their deadline, including overdue occurrences.
-  One-shots stop after one launch while their job future may remain active.
-- Pause, stop, and stopAll leave running jobs intact. Async completion callbacks
-  decrement active counts; worker completion is polled and joined before its
-  future completes. Thread callbacks keep their existing pragmas and exceptions
-  still do not propagate as job-future failures.
-- Throttled occurrences advance nominal cadence without a backlog. Capacity
-  remains configurable, finished futures are pruned, and actual `lastRun`
-  timestamps remain independent from nominal times.
-- Synchronous invocation failures and nil job futures still follow the same
-  recording/handler path as async failures. Job handlers take precedence over
-  scheduler fallback handlers; catchable handler failures remain contained.
-  Async callbacks keep access to global GC-managed state without `gcsafe`.
-- All eight constructor overloads retain defaults and validation. ID behavior,
-  scheduler settings, startup/blocking behavior, and repeated-start semantics
-  are preserved. `start()` and scheduler `waitFor()` return after startup,
-  without waiting for active jobs; `serve()` runs the event loop indefinitely.
-
-Seven added beater tests and three scheduler tests cover these integration
-contracts; the existing async GC-state test now also executes a callback that
-uses global state. Manually completed futures and explicit overdue nominal
-inputs keep most new checks independent of wall-clock timing. Short bounded
-waits cover pause polling and actual worker completion; atomics synchronize the
-held worker fixture without sharing GC-managed state across threads.
-
-README, top-level NimDoc, public lifecycle/startup comments, and CHANGELOG.md
-describe the preserved behavior. The inaccurate scheduler `waitFor` comment
-now describes startup rather than promising to drain jobs. Existing async,
-one-shot, and fire-time examples remain accurate without source/output changes.
-AGENTS.md's architecture and test layout still match the implementation.
-
-Validation:
-
-- Baseline `nimble test`: 130 passing tests on Nim `2.2.12`.
-- Final `nimble test`: 140 passing tests on Nim `2.2.12` and minimum supported
-  Nim `2.2.10`, including 56 beater and 13 scheduler tests.
-- `nimble coverage`: passes at 86.9% (1938/2231 lines), above the 80% minimum;
-  the standard instrumented suites exercise the private calculator unchanged.
-- `nimble docs`: passes; generated root/scheduler lifecycle and startup text
-  is present, and optional timezone/timer pages remain present.
-- Unchanged async, one-shot, and fire-time examples compile and run with threads
-  enabled. The fire-time example retains its three expected timestamps.
-- `nimble build`: attempted, returns "Nothing to build"; retain the previously
-  confirmed source-library build waiver, using tests/examples for compilation.
-- `git diff --check`: passes. Validation uses the installed compilers and
-  isolated writable Nimble/compiler caches under `/tmp`.
-
-Only the execution/lifecycle checklist is completed here. Optional modules/DSL
-compatibility is next; no later category or dedicated suite was started.
-Generated docs, coverage reports/badge, caches, test binaries, and the local
-plan remain ignored and are not committed.
-
-## Optional modules and DSL compatibility
-
-Completed on 2026-10-23, starting from `d0f3b08` on a clean `development`
-branch. The existing optional adapters and macro expansion already satisfy this
-category's contracts. Source changes clarify those boundaries and public
-documentation; no execution logic, public type, dependency, or policy changes
-were needed.
-
-Durable boundaries and interfaces:
-
-- `metronome/timers` owns `CalendarTimer` and adapts it to `NextRunProc` with
-  one retained callback per beater. Both async and thread-backed constructors
-  preserve bounds, throttle validation, and core lifecycle/error rules. The
-  callback retains its parsed timer after the caller reassigns its timer or
-  leaves scope. Calendar data types, parsing, and evaluation remain in separate
-  optional modules; the core calculator receives only the callback.
-- Both `scheduler` and blocking `metronome` use the existing shared expansion
-  for `every`, `cron`, `at`, and `timer`, with both job modes. Interval fields
-  and jitter, cron fields and timezone, bounds, IDs, throttle, and async handlers
-  are forwarded unchanged. Thread jobs reject job-level `onError`.
-- The timer DSL resolves `newTimer` and `initTimerBeater` in the caller and
-  keeps its missing-import diagnostic. Importing only `metronome` includes the
-  scheduler, private calculator, and cron evaluator, without timer modules,
-  timezone modules, or the catalog. Compiler-generated dependencies, rather
-  than just symbol visibility or binary size, verify this boundary.
-- Timer adapters retain microseconds, the evaluation input's timezone, exact
-  future lower-bound inclusion, inclusive upper bounds, and exhaustion. They
-  preserve DST gap skipping, earlier-only overlap selection, and recurring
-  timezone rules after 2037. Cron's restricted day fields keep OR semantics;
-  timer weekday/date restrictions keep AND. Direct timezone conversion retains
-  its separate gap normalization and overlap rules.
-- The pinned IANA `2026c` catalog, updater, cron implementation, and calendar
-  model/parser/evaluator are unchanged. No runtime downloads are introduced.
-
-Eight added regressions extend the existing scheduler and timer suites.
-`tests/compiler_probe.nim` compiles disposable consumers with the same compiler
-as its importing suite, checking generated dependencies and 24 invalid DSL
-cases across both entry macros. Temporary sources live outside `tests/`, so
-the helper explicitly supplies source/thread settings and removes its scratch
-directory. Valid generated callbacks are exercised once without starting
-recurring fire loops; the blocking macro is checked without entering its loop.
-No dedicated calculator suite or later category was started.
-
-README, source NimDoc, AGENTS.md's test layout, and CHANGELOG.md describe the
-optional adapter and verified contracts. Existing examples remain accurate
-without code or output changes.
-
-Validation:
-
-- Baseline `nimble test`: 140 passing tests on Nim `2.2.12`.
-- Final `nimble test`: 148 passing tests on local Nim `2.2.12` and minimum
-  supported Nim `2.2.10`; focused scheduler/timer suites pass 16/26 tests.
-- `nimble coverage`: passes at 87.0% (1949/2241 lines), above the 80% minimum.
-- `nimble docs`: passes; inspected the generated root and timer adapter text,
-  and verified that timezone and documentation index pages remain present.
-- Unchanged timer and named-timezone cron examples compile and run with their
-  expected winter/summer UTC/local timestamps and precise calendar target.
-- `nimble build`: attempted, returns "Nothing to build"; retain the previously
-  confirmed source-library waiver, using tests/examples for compilation.
-- `git diff --check`: passes. Validation uses installed compilers, cached
-  package metadata, and isolated writable Nimble/compiler directories under
-  `/tmp`; minimum-version test binaries use a separate output directory.
-
-Generated docs, coverage reports/badge, caches, test binaries, and the local
-execution plan remain ignored and are not committed. Only the optional-module
-and DSL category is completed here; deterministic calculation tests are next.
-
-## Deterministic calculation tests
-
-Completed on 2026-10-23, starting from `2c523ec` on a clean `development`
-branch. `tests/test_schedule_calculation.nim` imports the private calculator
-and cron constructor directly. Its 18 tests use fixed explicit dates (UTC by
-default) without job futures, event-loop execution, sleeps, clocks, RNG, or
-named timezone data. The suite also compiles and runs with threads disabled;
-compiler-generated dependencies confirm no scheduler, async runtime, timer,
-timezone catalog, or random module is imported.
-
-Durable test boundaries:
-
-- The direct matrix owns interval starts/alignment, exact and missed cadence
-  boundaries, overdue prior nominal progression, calendar-relative months and
-  years, leap dates and rollover, fractional milliseconds, and non-positive or
-  sub-millisecond interval lengths. These cases retain characterized arithmetic.
-- Direct cron tests use deterministic fixed-offset zones, verify configured
-  versus caller zones and matching boundaries, and leave broad DST coverage in
-  the existing timezone/timer suites. Custom tests record callback arguments,
-  one call per query, exact future lower-bound inclusion, precise zoned results,
-  mutable callback state, and exhaustion. One-shot tests retain precise past,
-  present, future, and consumed deadlines. Bounds and repeatability are tested
-  directly across built-in calculations without changing schedule inputs.
-- Arithmetic cases moved out of `tests/test_beater.nim`; focused public adapter
-  tests retain field/previous-time forwarding, bounds, timezone and precision
-  compatibility, constructor validation, and unchanged execution state. Jitter
-  stays here because the scheduler owns sampling: fixed dates and controlled
-  samples cover inert windows, inclusive endpoints, nominal cadence, and bounds.
-  Two clock-based jitter range tests were replaced with a controlled cadence
-  test; existing live execution and throttling checks remain.
-- `nimble test` discovers the new suite automatically. `code_coverage.sh` runs
-  it with its own `nimcache/schedule_calculation` cache, using the unchanged
-  source filter and 80% threshold. Its compiled binary is ignored. This minimal
-  wiring belongs to the new suite; the later packaging/CI audit remains pending.
-
-README and AGENTS.md describe the test split; CHANGELOG.md records it. Existing
-public NimDoc, README API examples, and example code/output remain accurate.
-No runtime logic, public API, dependency, package version, timezone data, or
-scheduling policy changed.
-
-Validation:
-
-- Baseline `nimble test`: 148 passing tests on Nim `2.2.12`.
-- Final `nimble test`: 151 passing tests on local Nim `2.2.12` and minimum
-  supported Nim `2.2.10`, including the new suite; focused calculator/beater
-  suites pass 18/41 tests.
-- The direct calculator suite passes with `--threads:off` as a separate check
-  of runtime independence. Normal suite commands retain `tests/config.nims`.
-- `nimble coverage`: passes at 87.0% (1949/2241 lines). The private calculator
-  has 52/54 lines covered, with the existing source filter unchanged.
-- `nimble docs`: passes; root, scheduler, timezone, timer, and documentation
-  index pages remain present, including the public `NextRunProc` symbol.
-- The unchanged fire-time example compiles/runs with its three expected dates.
-- `nimble build`: attempted, returns "Nothing to build"; retain the previously
-  confirmed source-library waiver, using tests/examples for compilation.
-- `git diff --check`: passes. Validation uses installed compilers and cached
-  Nimble metadata in writable temporary directories, without network access.
-
-Only the deterministic-calculation category is completed here. Execution/public
-API regression review is next. Generated docs, coverage reports/badge, caches,
-test binaries, and the local execution plan remain ignored and are not committed.
-
-## Execution and public API regression coverage
-
-Completed on 2026-10-23, starting from `7dc4201` on a clean `development`
-branch. Auditing the category found no production changes were needed. Three
-new regressions and strengthened existing fixtures verify execution across the
-private calculation boundary without changing public APIs or runtime policies.
-
-Durable execution and test contracts:
-
-- A launch observes the same jittered deadline previously published as
-  `nextRun`, and its actual timestamp is at or after that deadline. The next
-  interval is calculated from the prior nominal occurrence, with one new RNG
-  sample. The live regression controls the existing private RNG, keeps both
-  timestamps observable, and checks cadence without an upper latency assertion.
-- The positive 500-microsecond target is created during the first custom
-  calculation, rather than before construction. Exactly one launch must occur
-  at or after it, followed by exhaustion. Constructor/setup latency cannot make
-  the fixture skip its only occurrence.
-- An active async job may complete while its beater remains paused; tracking
-  settles to zero without launching overdue intervals or changing `lastRun`.
-  `stopAll` ends pending fire loops while leaving an active future intact. A
-  subsequent future failure still updates scheduler error introspection and
-  invokes the configured fallback handler, with lifecycle state still stopped.
-- Pause/resume fixtures avoid unbounded launch/deadline polling. Missed-interval
-  checks compare actual launches against resume time plus one interval;
-  before-deadline checks inspect the recomputed pending deadline instead of
-  relying on a short interval in which nothing should launch. Live waits are
-  bounded and started loops/jobs are stopped or completed during cleanup.
-- The async GC-state regression executes a generated DSL callback through
-  scheduler startup. Type/import compatibility, mutable fields, constructors,
-  all DSL commands and job modes, IDs, startup, synchronous/nil/async failures,
-  handler precedence/failures, throttling, and worker completion remain covered.
-  Timer adapters need no ownership/import changes. Existing timer, cron, and
-  timezone suites retain precision, winter/summer offsets, DST gaps/overlaps,
-  recurring rules after 2037, and host-independent fixtures.
-
-README's testing description and CHANGELOG.md record this regression coverage.
-Existing public NimDoc and examples remain accurate without source or output
-changes. No new test runtime, dependency, public clock/RNG interface, compiler
-flags, timezone data, package version, or scheduling policy was introduced.
-
-Validation:
-
-- Baseline `nimble test`: 151 passing tests on Nim `2.2.12`.
-- Final `nimble test`: 154 passing tests on local Nim `2.2.12` and minimum
-  supported Nim `2.2.10`; focused beater/scheduler suites pass 43/17 tests.
-- `nimble coverage`: passes at 87.0% (1950/2242 lines), above the 80% minimum.
-  All six suites run with instrumentation and the existing source filter.
-- `nimble docs`: passes; root, scheduler, timezone, timer, and index pages are
-  present, with the public `NextRunProc` symbol retained.
-- `nimble build`: attempted, returns "Nothing to build"; retain the previously
-  confirmed source-library waiver, using the suites for compilation validation.
-- `git diff --check`: passes. Installed compilers and cached Nimble metadata
-  use writable temporary caches without network access. Tests retain the
-  thread/path settings in `tests/config.nims`; minimum-version binaries have
-  a separate temporary output directory.
-
-Only the execution/public API regression category is completed here. The README
-and source-documentation audit is next. Generated docs, coverage reports/badge,
-caches, binaries, and the local plan remain ignored and are not committed.
-
-## README and source documentation
-
-Completed on 2026-10-24, starting from `50ed70f` on a clean `development`
-branch. README's diagram now shows explicit-input nominal calculation feeding
-beater-owned deadline planning, waiting, lifecycle checks, and throttled
-dispatch. The scheduler retains ownership, startup, controls, and inspection.
-README and source NimDoc distinguish three timing values:
-
-- Nominal occurrence: the interval cadence input, retained after launches and
-  throttled occurrences independently of jitter and job duration.
-- Effective deadline: the nominal candidate after optional interval jitter and
-  inclusive bounds checks. `fireTime` computes a preview using explicit inputs;
-  `nextRun` reads the pending runtime deadline without calculation or RNG use.
-- Actual launch timestamp: `lastRun` records the clock after job invocation,
-  independently of completion. Schedule bounds do not limit completion or
-  prevent a late dispatch beyond `endTime`.
-
-The documentation states the existing per-kind lower-bound rules: interval
-anchors, the custom/timer future-start adjustment, cron's current-time query,
-and precise pending one-shots. Direct constructors retain Option-valued bounds
-and cron timezones, `throttleNum`, and `errorHandler`; DSL parameters retain
-their current plain-value wrapping and names. Custom callbacks stay non-nil,
-gcsafe, raises: [], and should return promptly during event-loop calculation.
-Async job bodies can access GC-managed state. Public requirements, optional
-imports, best-effort dispatch, lifecycle, and failure reporting remain intact.
-
-Updated the bounds snippets to use `dateTime` and keep the event loop running
-with `serve()`, explicitly explaining that the blocking loop survives schedule
-exhaustion. Public `##` comments and the private calculator's invariants agree
-with these contracts. AGENTS.md describes the shared planner's bound checks.
-No implementation code, public signatures/exports, example files, tests,
-dependencies, compiler configuration, version, or runtime policy changed.
-
-Validation on Nim `2.2.12`:
-
-- Baseline and final `nimble test`: all 154 tests pass.
-- `nimble docs`: passes without warnings; public root/scheduler/timezone/timer
-  pages and the new sections are present. All 57 canonical scheduler export
-  links resolve, including NextRunProc, fireTime, lastRun, and nextRun. The
-  complete root export-link set matches freshly generated baseline docs.
-- Six extracted README/NimDoc snippets compile with threads enabled; both
-  next-run snippets print `2026-01-01T12:40:00Z`. The unchanged fire-time example
-  runs with its original interval/window/cron output. All 31 README section
-  links resolve, and the diagram passes the installed Mermaid flowchart grammar
-  with browser rendering disabled.
-- `nimble build`: attempted; returns "Nothing to build" under the existing
-  user-confirmed source-library waiver. `git diff --check` passes. Validation
-  uses the installed compiler, isolated Nimble metadata, and temporary caches.
-
-Only this documentation category is completed. The later examples/changelog
-review and packaging/CI audit remain pending. Generated docs, caches, binaries,
-and the updated local execution checklist remain ignored and are not committed.
-
-## Examples and changelog
-
-Completed on 2026-10-24, starting from `72d591b` on a clean `development`
-branch. Reviewed all ten examples against the public imports and calculation /
-execution boundary. Only explanatory comments in the interval and fire-time
-examples needed changes; their non-comment code is identical to the baseline.
-The remaining examples, including the optional Prologue integration, are
-unchanged. No runtime, API, dependency, package version, release history, or
-scheduling policy changed.
-
-Durable example contracts:
-
-- The fire-time example uses supported `metronome` imports, fixed UTC dates,
-  and zero jitter. Its required async job is never invoked by `fireTime`; the
-  preview starts no event loop and publishes no runtime `nextRun` deadline.
-  It retains all three outputs: interval and inclusive-window previews at
-  `2026-01-01T12:40:00Z`, and cron at `2027-01-01T00:00:00Z`.
-- README and source NimDoc now show the complete example's command and output.
-  Their shorter preview snippets still print `2026-01-01T12:40:00Z`. Examples
-  use public APIs; none asks applications to import the private calculator.
-- The basic interval example uses default throttle 1 for its thread-backed
-  job. Corrected its comment claiming throttle 2 and clarified that `serve()`
-  remains alive after the bounded job exhausts its schedule.
-- Named-timezone and calendar-timer examples retain their optional imports,
-  winter/summer UTC offsets, and microsecond calendar target. Prologue remains
-  optional and is compiled only when its integration changes and dependencies
-  are available. README links to unreleased notes separately from releases.
-
-Validation on Nim `2.2.12`:
-
-- Baseline and final `nimble test`: all 154 tests pass.
-- All nine examples without Prologue compile with threads enabled. The
-  fire-time, named-timezone, timer, async, and one-shot examples run with bounded
-  process timeouts; automated output checks verify fixed timestamps, offsets,
-  microseconds, and job completion. Disposable interval/cron harnesses retain
-  the example definitions, start their schedulers, then stop and drain fire
-  loops and active jobs without waiting for distant cron occurrences.
-- Both README/NimDoc preview snippets compile and run; their output and the
-  full documented three-line output match the fire-time example exactly.
-- `nimble docs`: passes without warnings. Generated public pages are present
-  and the root page contains the expected example output. README local links
-  resolve. No test, coverage, packaging, or CI configuration changed.
-- `nimble build`: attempted; returns "Nothing to build" under the existing
-  user-confirmed source-library waiver. Tests and examples verify compilation.
-- `git diff --check`: passes. Validation uses isolated Nimble metadata and
-  temporary build/cache directories; documentation remains generated locally.
-
-Only this category is complete; the packaging/CI audit is next. Generated
-documentation, temporary verification harnesses, binaries, caches, and the
-local execution checklist are not committed.
-
-## Test discovery, coverage, packaging, and CI
-
-Completed on 2026-10-24, starting from `dd4c7a1` on a clean `development`
-branch. The calculator suite's discovery, isolated coverage cache, and binary
-ignore were already added with the deterministic-test category. Verified this
-wiring without changing the six-suite coverage list, `src/*` filter, ignores,
-or CI workflows. README and CHANGELOG.md record the verified setup.
-
-Durable documentation and packaging contracts:
-
-- `nimble docs` retains project documentation generation and the private
-  calculator's HTML page so the scheduler's import link resolves. It removes
-  `docs/metronome/private/schedule.idx` before building the API index, keeping
-  private helper symbols out of public API search/navigation. No public page,
-  symbol export, output path, or source documentation needs relocation.
-- Nimble's existing `srcDir = "src"` installation includes the nested private
-  calculator, all public modules, and pinned timezone data. No extra packaging
-  whitelist, dependency, runtime download, or source import path is needed.
-  A disposable installation under `/tmp` was checked byte-for-byte against all
-  source/data files. Consumers outside the checkout compiled and ran with both
-  compilers using only that installed path, `--noNimblePath`, and disabled
-  user/parent/project configuration. Separate root, direct scheduler, cron,
-  timezone, and timer consumers exercised calculation, callback compatibility,
-  named-zone offsets, precise timer targets, and the timer DSL. Core/direct
-  scheduler consumers retain private helpers without importing timer/timezone
-  modules or re-exporting helper symbols.
-- CI continues to pin Nim `2.2.10` and lcov `2.1`, run canonical `nimble docs`
-  and `nimble coverage`, and enforce 80% line coverage. Push/pull-request
-  validation for both branches, master-push-only Pages upload/deployment, and
-  release installation checks remain unchanged. Generated artifacts remain
-  ignored and are never staged. Local coverage uses installed lcov `2.6`.
-
-Validation:
-
-- `nimble test`: all 154 tests pass on Nim `2.2.12` and minimum Nim `2.2.10`,
-  including automatic discovery of `test_schedule_calculation.nim`.
-- `nimble coverage`: all six instrumented suites pass on both compilers.
-  Nim `2.2.12` covers 1951/2244 lines (86.9%); Nim `2.2.10` covers 1986/2271
-  (87.5%). The private calculator covers 52/54 and 56/58 lines respectively;
-  every helper executes. Compiler-generated code changes the reported totals.
-- `nimble docs`: passes on both compilers. Automated artifact checks confirm
-  only private index entries disappear, all public pages remain, the scheduler's
-  private import link resolves, and all 57 canonical scheduler export links are
-  preserved. The 112 known duplicate-suffix link defects remain unchanged.
-- Disposable installed-package smoke checks: all five public import consumers
-  compile and run on both compilers, without using the checkout's source path
-  or changing the user's installed package.
-- `nimble check` passes. `nimble build` was attempted and reports "Nothing to
-  build" under the existing source-library waiver; suites and installed
-  consumers verify compilation. `git diff --check` passes.
-
-Only this category is complete. **Implementation Order and Validation** is
-next; its checklist and the completion/deferred-work category remain untouched.
-Examples and public NimDoc content remain accurate and unchanged. Generated
-documentation, coverage reports/badge, caches, binaries, temporary acceptance
-scripts, and the updated local plan are not committed.
-
-## Baseline snapshot
-
-Starting snapshot, recorded on 2026-10-23:
-
-- Branch: `development`, starting commit `9d5c65c` (`README edit`).
-- Working tree: clean before this work.
-- Package version: `0.5.2`; minimum Nim: `2.2.10`; local Nim: `2.2.12`
-  (`8e8fbf60693418dc95bb0d762fd660231d08a583`), Linux amd64.
-- The initial `nimble test` failed to compile the sub-millisecond test because a
-  `gcsafe` callback referenced a top-level GC-managed `DateTime`. Moving the
-  captured timestamps into a procedure restored all 108 existing tests before
-  adding characterization cases. The callback type contract was retained.
-- Keep work on the development branch and retain the existing version. This
-  refactor does not create a release, tag, or dependency.
-
-## Public interfaces to preserve
-
-`src/metronome.nim` explicitly re-exports the scheduler API and `Cron`, `newCron`,
-and `getNext`. Consumers may also import `metronome/scheduler` directly; type
-identity and exported symbols must remain available there.
-
-| Area | Existing public surface |
+`onceNextRun`, and inclusive `withinEndTime`. Dependencies are the standard
+library and existing cron evaluator. No scheduler, jobs/futures, event loop,
+threads, clocks, sleeps, logging, RNG, timer parser, or timezone catalog belongs
+here. Built-in calculations are deterministic for fixed inputs; callbacks may
+capture mutable state. Helpers are not supported application APIs or re-exported
+by `metronome` / `metronome/scheduler`.
+
+`nominalFireTime` in `scheduler.nim` is a thin variant adapter reading current
+exported fields on every query. Keep one authoritative implementation, without
+a cached schedule model, copied cron tables, or per-occurrence callback
+allocation. `NextRunProc` remains defined in the scheduler; the private helper
+accepts its identical structural signature to avoid a cycle or type relocation.
+
+Private `planFireTime` supplies both `fireTime` and `fire` with
+`Option[tuple[nominal, effective: DateTime]]`. It checks the nominal upper bound,
+applies jitter once, then checks the effective upper bound with `withinEndTime`.
+The live loop retains the nominal time while waiting and advances cadence from
+it after dispatch or throttling. Lifecycle, jobs/futures, throttling, counters,
+actual launch/error timestamps, resume tracking, pause generations, and per-beater
+RNG stay in the scheduler.
+
+`src/metronome.nim` explicitly exports the scheduler API and `Cron`, `newCron`,
+`getNext`. Direct `metronome/scheduler` imports retain the same types and symbols.
+
+| Area | Public surface to preserve |
 | --- | --- |
-| Job callbacks | `BeaterAsyncProc`, `BeaterThreadProc`, `NextRunProc`, `JobErrorHandler` |
-| Settings and logging | `Settings` with mutable `appName` and `errorHandler`, `newSettings`, `logger` |
+| Callbacks | `BeaterAsyncProc`, `BeaterThreadProc`, `NextRunProc`, `JobErrorHandler` |
+| Settings/logging | Mutable `Settings.appName` / `errorHandler`, `newSettings`, `logger` |
 | Throttling | `Throttler`, `initThrottler`, `throttled`, `submit` |
 | Beaters | `BeaterKind`, `BeaterState`, `Beater`, `$`, eight `initBeater` overloads, `fireTime`, `fire` |
-| Beater inspection | `id`, `state`, `lastRun`, `nextRun`, `lastError`, `lastErrorAt`, `failures`, `runningCount` |
-| Beater controls | `pause`, `resume`, `stop` |
-| Scheduler | `Scheduler`, `initScheduler`, `register`, `listJobs`, `jobState`, `stopAll`, `idle`, `start`, `serve`, `waitFor` |
-| Scheduler controls and inspection | ID-based `pause`, `resume`, `stop`, `lastRun`, `nextRun`, `lastError`, `lastErrorAt`, `failures`, `runningCount` |
+| Inspection | `id`, `state`, `lastRun`, `nextRun`, `lastError`, `lastErrorAt`, `failures`, `runningCount` |
+| Controls | Beater and ID-based scheduler `pause`, `resume`, `stop` |
+| Scheduler | `Scheduler`, `initScheduler`, `register`, `listJobs`, `jobState`, `stopAll`, `idle`, `start`, `serve`, `waitFor`, ID-based inspection |
 | DSL | `scheduler name:` and blocking `metronome:`; `every`, `cron`, `at`, caller-resolved optional `timer` |
-| Optional timers | `metronome/timers`: `CalendarTimer`, string/open-array `newTimer`, `getNext`, async/thread `initTimerBeater` |
+| Optional timers | `CalendarTimer`, string/open-array `newTimer`, `getNext`, async/thread `initTimerBeater` |
 
-`Beater` is a `ref object of RootObj` with exported variant discriminator `kind`:
+`Beater` remains a `ref object of RootObj` with exported variant discriminator
+`kind`: `bkInterval` has mutable `interval` / `jitter`; `bkCron` has `cron` /
+`timezone`; `bkCustom` has `nextRunProc`; `bkOnce` has no extra exported fields.
+Retain `bsRunning`, `bsPaused`, `bsStopped`; all execution fields remain private.
 
-- `bkInterval`: mutable exported `interval` and `jitter` (`TimeInterval`).
-- `bkCron`: mutable exported `cron` (`Cron`) and `timezone` (`Option[Timezone]`).
-- `bkCustom`: mutable exported `nextRunProc` (`NextRunProc`).
-- `bkOnce`: no additional exported fields.
+Each kind has async and thread constructors. Recurring defaults are
+`startTime=now()`, no upper bound, empty ID, throttle 1, no job error handler;
+interval jitter is zero and cron timezone is none. One-shots use their supplied
+deadline without an upper bound. Direct APIs take Option-valued bounds/timezones,
+`throttleNum`, and `errorHandler`; DSL uses plain values and existing parameter
+names. Invalid throttle (<1), nil custom callbacks, and thread job-level error
+handlers raise `ValueError`; the DSL retains its thread `onError` diagnostic.
 
-Keep `bsRunning`, `bsPaused`, and `bsStopped`, and retain the object's variant
-shape and inheritance. Calculation must read current schedule fields rather
-than a second cached representation. Bounds, job callbacks, futures, counters,
-errors, lifecycle state, resume timestamps, and RNG state are private.
+`NextRunProc` takes `DateTime`, returns `Option[DateTime]`, and retains
+`closure, gcsafe, raises: []`. It must return the first instant strictly after
+its input or none, and should return promptly on the event loop. Async jobs
+retain access to global GC-managed state without a `gcsafe` requirement; thread
+callbacks retain `gcsafe, thread`. Scheduler handlers may accompany thread jobs
+but cannot receive thread exceptions through job futures.
 
-Each interval, cron, custom, and one-shot constructor accepts an async or thread
-job. Recurring constructors default to `startTime=now()` and no upper bound.
-All constructors default to an empty ID, throttle 1, and no job error handler;
-interval jitter defaults to zero and cron timezone defaults to none. One-shot
-constructors use the supplied deadline and no upper bound. `throttleNum < 1`
-raises `ValueError`. A nil custom callback raises `ValueError`. Thread-backed
-constructors reject job error handlers; scheduler-level handlers are allowed
-alongside thread jobs but do not capture thread exceptions.
+## Calculation and deadline contracts
 
-`NextRunProc` is exactly a closure taking a `DateTime` and returning
-`Option[DateTime]`, with `gcsafe` and `raises: []`. Its contract requires the first
-instant strictly after the supplied input. It can capture mutable state; purity
-and deterministic results are not guaranteed. Async job callbacks have no
-`gcsafe` requirement and may use global GC-managed state. Thread job callbacks
-retain their `gcsafe, thread` pragmas.
-
-## Calculation inputs and behavior
-
-The private calculation path is `nominalFireTime` -> per-kind calculation helper
--> `withinEndTime`, followed on the execution side by `applyJitter` and a second
-upper-bound check. `planFireTime` owns this orchestration for both inspection
-and execution. Interval calculation and jitter share `intervalMilliseconds`.
-
-| Input or result | Meaning |
-| --- | --- |
-| `now` argument | Explicit query time supplied to `fireTime`; live execution reads the clock for each query |
-| `prev` argument | Previous nominal occurrence, used to advance interval cadence or consume a one-shot; independent of actual launch time |
-| `startTime` | Interval cadence anchor, custom query lower bound, or one-shot deadline; cron currently queries from `now` |
-| `endTime` | Inclusive upper bound checked against both nominal and jittered candidates |
-| Nominal occurrence | Candidate before interval jitter, retained by the live loop even when throttled |
-| Effective deadline | Candidate after interval jitter; exposed as pending `nextRun` and used by the wait loop |
-| `lastRun` | Clock timestamp recorded after invoking a job, including invocation normalized to a failed future |
-
-### Per-kind rules
+`prev` is a previous nominal occurrence, independent of actual `lastRun`.
+`fireTime(prev, now)` receives an explicit query time; live execution reads the
+clock. `endTime` is inclusive for nominal and effective deadlines. It does not
+limit job completion or prevent dispatch delayed beyond that bound.
 
 | Kind | No previous occurrence | Supplied previous occurrence |
 | --- | --- | --- |
-| Interval | Use `startTime` if it is at or after `now`; otherwise align using the interval's millisecond length measured at `startTime` | Add the calendar-relative `TimeInterval` to `prev`, even if the result is already behind `now` |
-| Cron | Call existing `Cron.getNext(now)`, with optional zone conversion | Same query; ignore `prev` |
-| Custom | Query `startTime - 1 nanosecond` if `startTime > now`, otherwise query `now` | Same query; ignore `prev` |
-| One-shot | Return the supplied deadline, including if equal to `now` or overdue | Return none |
+| Interval | Select `startTime` when at/after query; otherwise align by whole milliseconds measured at the anchor | Add the calendar-relative `TimeInterval` to `prev`, even if still overdue |
+| Cron | Query existing `Cron.getNext(now)` with optional zone conversion | Same query; ignore `prev` |
+| Custom/timer | Query `startTime - 1 nanosecond` if the start is future; otherwise query `now` | Same query; ignore `prev` |
+| One-shot | Return precise deadline, including at/past query | Return none |
 
-Initial interval alignment advances to the *next* boundary when an earlier
-anchor is exactly a whole number of intervals behind `now`. For a ten-minute
-interval anchored at 12:00, initial inspection at 12:30 returns 12:40. Supplying
-12:00 as `prev` instead returns 12:10, with no catch-up policy added by calculation.
+Initial interval alignment selects the next boundary when a past anchor is
+exactly a whole number of intervals behind the query: 12:00 + ten-minute
+interval queried at 12:30 gives 12:40; supplying 12:00 as `prev` gives 12:10.
+Initial measurement retains calendar-relative anchor length: a one-month
+interval anchored 2026-01-01 queried 2026-02-15 gives 2026-03-04 (31-day length),
+while progression from 2026-02-01 gives 2026-03-01. Elapsed/interval measurement
+truncates to milliseconds, then adds remaining wait to the original query,
+retaining its fractional milliseconds. Do not normalize these characterized
+semantics into fixed durations or successive-month alignment.
 
-Initial alignment converts `startTime + interval - startTime` to milliseconds;
-it must retain the existing calendar-relative arithmetic. For a one-month
-interval anchored on 2026-01-01, initial inspection on 2026-02-15 returns
-2026-03-04 using the anchor's 31-day length. Progression from a previous
-2026-02-01 occurrence returns 2026-03-01 by adding a calendar month.
+Zero/negative intervals remain accepted. With a past anchor and non-positive
+measured length, initial calculation returns the query; a future anchor still
+wins. With `prev`, add the interval unchanged. Positive intervals below 1 ms
+also measure zero initially, but retain precision during subsequent addition.
+Do not add interval validation or change live-loop behavior in this refactor.
 
-Zero and negative interval lengths are accepted today. For a past anchor, an
-initial calculation returns `now`; a future anchor still returns that anchor.
-With `prev`, the interval is added unchanged, including zero or negative values.
-Positive intervals below one millisecond also have zero measured initial length.
-Do not add validation or change the resulting live-loop behavior during extraction.
+Cron uses the existing evaluator, including matching-boundary inclusion,
+restricted day-of-month/day-of-week OR semantics, and no `startTime` enforcement.
+Configured zones convert the query into that zone and the result back into the
+caller's zone. Do not impose the custom strictly-later contract on cron.
+Custom callbacks are invoked once per query, may exhaust, and preserve returned
+timezone/nanoseconds. The future-start adjustment includes that exact bound.
+One-shots retain nanoseconds; calendar targets retain microseconds. Empty timer
+expression lists are rejected; exhausted timers return none.
 
-Initial alignment truncates elapsed time and interval length to whole
-milliseconds, then adds the remaining wait to the original query. This retains
-the query's fractional milliseconds and can differ from an exact anchor-based
-duration calculation. Subsequent progression keeps the original TimeInterval
-precision. Do not normalize either path while separating calculation.
+Jitter is interval-only, calendar-relative to each nominal occurrence, truncated
+to milliseconds, ignored if non-positive, capped at `high(int)`, and sampled
+inclusively from zero to that cap. RNG is beater-owned and seeded at construction.
+Rejected nominal bounds consume no sample; rejection after jitter consumes one.
+`fireTime` invokes callbacks / samples RNG without setting runtime `nextRun`,
+`lastRun`, counters, or lifecycle state; previews do not reserve deadlines and
+independent preview/execution calls can differ. `nextRun` simply reads the
+pending effective deadline; `lastRun` records the clock after job invocation.
 
-Cron's configured timezone converts the query into that zone and converts the
-result back to the caller's timezone. Its current evaluator may return the query
-itself at a matching boundary; it does not implement custom callbacks'
-strictly-later guarantee. It does not enforce `startTime`. Keep cron's existing
-OR semantics for restricted day-of-month and day-of-week, and delegate all
-matching to the existing evaluator without parser fixes.
+## Execution and lifecycle contracts
 
-Custom callbacks can return none for empty or exhausted schedules. The
-one-nanosecond adjustment allows a callback to return exactly a future lower
-bound. Custom and one-shot targets preserve supplied nanosecond precision;
-calendar timer targets preserve microseconds. A result exactly at `endTime` is
-accepted; any later result is rejected. Cron's existing evaluator normally
-returns some; do not invent an exhaustion policy. Empty calendar expression
-lists are rejected by `newTimer`; exhausted calendar expressions return none.
-An empty scheduler starts no fire loops.
-
-### Inspection versus live execution
-
-`fireTime(prev, now)` calls the shared planner and returns its effective
-deadline. It does not set `nextRun`, `lastRun`, lifecycle state, or counters.
-It can advance the beater's RNG or invoke a stateful user callback, so it is
-not universally pure.
-
-`fire` calls the same planner. It retains both nominal and effective times,
-publishes the effective time as `nextRun`, waits, and advances `prev` from
-the nominal time after either dispatch or throttling. The shared planner
-returns both times, avoiding another preview call and extra random samples.
-
-Jitter is interval-only and non-negative: measure its `TimeInterval` relative to
-the nominal occurrence, ignore non-positive millisecond lengths, cap at
-`high(int)`, and sample the inclusive range from zero to that maximum. Each
-beater owns its RNG, seeded from the clock at construction. Both pre-jitter and
-post-jitter upper-bound checks must remain.
-
-## Execution and lifecycle ownership
-
-- `waitUntil` compares the clock with the effective deadline before returning.
-  Sleeps are capped at 100 ms; a positive remainder below one millisecond causes
-  a 1 ms sleep and recheck. Keep pause-generation checks so a pause/resume cycle
-  invalidates a pending wait even when the state has already returned to running.
+- `waitUntil` rechecks the clock against the effective deadline. Waits cap at
+  100 ms; a positive sub-millisecond remainder sleeps 1 ms and rechecks.
+  Pause-generation checks invalidate waits even after immediate pause/resume.
 - `pause` clears `nextRun`, increments the generation, and leaves active jobs
-  running. `resume` records the current time; interval execution advances from
-  that time, skipping intervals missed during the pause. Pending one-shots
-  survive pauses, including overdue deadlines, and stop after one launch.
-- `stop` and `stopAll` prevent future launches and clear pending deadlines.
-  They do not cancel active jobs. Calculation exhaustion clears `nextRun` and
-  ends the fire loop without necessarily changing state from `bsRunning`.
-- `Throttler.throttled` prunes finished futures and checks the configured limit.
-  A throttled occurrence still advances nominal cadence and creates no backlog.
+  running. `resume` records the clock; interval cadence advances from resume time
+  without replaying missed intervals. One-shots remain pending across pauses,
+  including overdue deadlines, and stop after one launch while jobs may remain.
+- `stop` / `stopAll` clear pending deadlines and prevent launches without
+  cancellation. Exhaustion clears `nextRun` and ends the fire loop without
+  necessarily changing `bsRunning` to `bsStopped`.
+- Throttling prunes completed futures and respects configurable capacity.
+  Throttled occurrences advance nominal cadence without a backlog. Completion
+  callbacks settle async counts; worker completion is polled every 10 ms and
+  joined before its future completes. Thread exceptions do not fail job futures.
 - `launch` normalizes synchronous invocation errors and nil futures into failed
-  futures. `watch` tracks active count, records failures and timestamps, and
-  prefers the job error handler over the scheduler handler. Catchable handler
-  failures are logged and contained.
-- `toAsync` creates a worker thread, polls completion every 10 ms, and joins it.
-  Thread exceptions do not propagate through the job future.
-- `start` starts and retains each fire-loop future with `asyncCheck`, then
-  returns without waiting for jobs. Repeated starts have no restart guard.
-  Scheduler `waitFor` waits for startup, not for all jobs to finish. `serve` also
-  starts an infinite `idle` loop and runs the event loop forever. Preserve these
-  behaviors during the refactor.
-- Registration accepts anonymous and duplicate IDs. ID-based operations require
-  one non-empty unique match; missing or ambiguous IDs return false, none, nil,
-  or zero as appropriate. `listJobs` retains non-empty IDs including duplicates.
+  futures. `watch` records failures/timestamps and prefers job handlers over
+  scheduler fallbacks; catchable handler failures are logged and contained.
+  Active jobs can complete/fail after pause or stop and still update inspection.
+- `start` retains fire-loop futures with `asyncCheck` and returns after startup;
+  repeated starts have no restart guard. Scheduler `waitFor` waits for startup,
+  not job completion. `serve` runs an infinite idle/event loop, even after all
+  schedules exhaust. Paused polling is 100 ms; scheduler idle is 1000 ms.
+- Anonymous/duplicate IDs remain valid registrations. ID operations require a
+  unique non-empty match and otherwise return false/none/nil/zero as appropriate.
+  `listJobs` includes non-empty duplicates.
 
-## Dependency and verification constraints
+## Optional modules, docs, and packaging
 
-Core and cron remain standard-library-only. `metronome/timers` adapts a parsed
-`CalendarTimer` to `NextRunProc`; its model, parser, and evaluator stay separate.
-The core timer DSL resolves `newTimer` and `initTimerBeater` from the caller and
-retains its missing-import diagnostic. Importing only `metronome` must not
-include timer parsing or embedded IANA data. Keep the `2026c` catalog unchanged,
-timer day constraints combined with AND, DST gaps skipped, and the earlier
-instant chosen for overlaps. Direct timezone normalization has separate rules.
+Core and cron use only the standard library. `metronome/timers` adapts parsed
+`CalendarTimer` to one retained `NextRunProc` per beater, preserving ownership
+after the caller reassigns its timer or leaves scope. Calendar model, parser,
+and evaluator remain separate. The timer DSL resolves `newTimer` /
+`initTimerBeater` from the caller and keeps its missing-import diagnostic.
+Core-only imports must not include timer parsing or timezone modules/catalog.
+Keep IANA `2026c` unchanged, calendar day matching AND, spring gaps skipped,
+earlier-instant overlaps, and recurring rules after 2037. Direct timezone
+conversion keeps its separate gap normalization and overlap rules.
 
-Direct arithmetic tests live in `tests/test_schedule_calculation.nim` without
-execution imports. Focused public compatibility tests in `tests/test_beater.nim`
-also cover mutations to interval, jitter, cron, timezone, and callback fields
-without changing execution state. `tests/test_scheduler.nim` verifies direct
-and root public type imports, callback compatibility, beater inheritance, and
-that helpers are not re-exported. Existing cron, timezone, and timer suites
-retain broader matching, DST, and optional-adapter coverage. README, NimDoc, and
-fire-time examples retain the existing public imports and API. No example code
-or documented output needs changing for these categories.
+Nimble `srcDir = "src"` includes all nested modules and pinned data at install.
+Copy `tests/fixtures/installed_package_smoke.nim` outside the checkout and run
+its five `packageSmoke` modes with only the installed path,
+`--noNimblePath`, and user/parent/project configurations disabled; compare all
+installed source/data bytes. Separate root, scheduler, cron, timezone, and timer
+consumers protect public imports and optional boundaries.
 
-Metronome is a source library. Compilation is exercised by the test suites;
-validation does not require a package binary target. In this category,
-`nimble build` was attempted and returned "Nothing to build". The user explicitly
-confirmed retaining the library build waiver, using tests and examples for
-compilation validation. Do not add a binary target for this refactor.
+`nimble docs` retains the private calculator HTML for scheduler import links,
+but removes `docs/metronome/private/schedule.idx` before API-index generation.
+Private helpers must stay out of supported API search/navigation. Preserve root,
+scheduler, timezone, and timer pages and the 57 canonical scheduler export links.
+Edit source NimDoc rather than generated HTML. CI pins Nim `2.2.10` / lcov `2.1`,
+runs canonical docs/coverage tasks, and enforces 80% line coverage. Local tools
+are Nim `2.2.12` and lcov `2.6`. PRs validate; only master pushes deploy Pages.
+No backend matrix or generated documentation/badge commits belong in this work.
+Generated docs, reports/badge, caches, binaries, local Nimble files, plans, and
+logs stay ignored.
 
-The baseline suite has 116 passing tests, and documentation generation passes.
-`nimble coverage` passes with 86.3% line coverage (1876/2173 lines), above the
-80% minimum. `git diff --check` passes. All baseline acceptance criteria are met.
-Generated docs, reports, binaries, caches, and local plans are not committed.
-CI's Nim `2.2.10` and lcov `2.1` pins remain unchanged; local validation uses
-Nim `2.2.12` and lcov `2.6`.
+## Test and example boundaries
 
-## Deferred observations
+`tests/test_schedule_calculation.nim` owns direct fixed-input arithmetic,
+per-kind bounds/precision/zones/exhaustion/repeatability tests without scheduler,
+futures, clocks, sleeps, RNG, or named-zone data. It also runs with threads off.
+`test_beater.nim` retains public delegation/mutable-field/state compatibility,
+controlled private RNG checks (std/importutils, no public seed API), deadline
+waiting, cadence, lifecycle, concurrency, and failure tests. `test_scheduler.nim`
+retains public type/import/inheritance and DSL/ID/startup/GC-state tests.
+`tests/compiler_probe.nim` compiles disposable consumers with its suite's own
+compiler for dependency information and 24 invalid DSL cases. Cron/timezone/timer
+suites retain host-independent DST, post-2037, precision, and adapter coverage.
+`tests/config.nims` supplies source path / threads; avoid redundant flags.
 
-The existing cron evaluator retains a second when rounding some fractional
-queries: `2026-01-01T11:30:00.123456789Z` with hour `13`, minute `0` returns
-`2026-01-01T13:00:01Z`. This was observed while writing the mutable-field test.
-It is outside the calculation-boundary category; cron evaluation remains
-unchanged and that regression uses a whole-second query.
+Live fixtures use bounded tolerant waits and clean up loops/jobs. The positive
+500-microsecond target is created during custom calculation to avoid setup
+latency exhausting it. Cadence tests use explicit overdue nominal inputs where
+possible; live jitter checks compare published deadlines with actual launches
+without an upper latency bound. Completed futures need an event-loop turn for
+tracking cleanup; held worker fixtures use atomics without GC-shared state.
 
-Nim `2.2.12` project documentation emits duplicate root re-export links with
-`_2`/`_3` suffixes whose target anchors do not exist. A fresh baseline generation
-from `50ed70f` and the documentation category output have the identical set:
-57 working canonical scheduler links and 112 broken suffixed duplicates.
-Canonical public symbol visibility and links are preserved; the generator's
-duplicate-link behavior is outside this documentation-only category.
+`nimble test` discovers all six suites. `code_coverage.sh` instruments each with
+its own cache, including `nimcache/schedule_calculation`, and retains `src/*`
+filtering. Every private helper must execute; do not lower the 80% threshold or
+exclude new logic. Minimum/local compiler-generated totals can differ.
+
+Examples use supported public imports. The fire-time example uses fixed UTC
+inputs, zero jitter, and an uninvoked async job; it starts no event loop and sets
+no runtime deadline. README/NimDoc output stays: interval/window previews
+`2026-01-01T12:40:00Z`, cron `2027-01-01T00:00:00Z`. Interval examples use default
+thread-job throttle 1 and explain blocking-loop lifetime. Named-zone/timer
+examples retain optional imports, winter/summer offsets, and microseconds.
+Prologue stays optional; compile it only when its integration changes and its
+dependencies are available.
+
+## Known caveats and deferred work
+
+- Existing cron fractional-query rounding can retain a second:
+  `2026-01-01T11:30:00.123456789Z` queried for hour 13/minute 0 gives
+  `2026-01-01T13:00:01Z`. Do not fix cron evaluation in this refactor.
+- Nim `2.2.12` generates 112 broken duplicate root re-export links with `_2` /
+  `_3` suffixes, alongside 57 working canonical scheduler links. Fresh baseline
+  docs from `50ed70f` have the same set. Preserve canonical visibility and avoid
+  treating this generator defect as a new refactor regression.
+- Chronos, Nimony, polling optimization, cancellation, worker pools, persistent
+  catch-up, new scheduling policies, and unrelated parser fixes remain separate
+  work. Chronos needs a concrete consuming runtime requirement; Nimony needs a
+  compiling prototype before compatibility claims or migration plans.

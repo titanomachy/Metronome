@@ -53,6 +53,12 @@
 
 ### Development and regression coverage
 
+- Added a reusable installed-package smoke fixture with separate public-import
+  modes and documented the final calculation/execution validation workflow.
+  Verified full tests, instrumented coverage, generated documentation, fire-time
+  and timer examples, and installed consumers on Nim `2.2.10` and `2.2.12`.
+  Condensed persistent project memory to retain architecture contracts and known
+  caveats without category work logs.
 - Verified discovery and instrumented coverage of all six suites on the local
   and minimum supported Nim versions, plus installation of every public module
   and the private calculator in a disposable package environment. Omitted private

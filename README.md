@@ -854,14 +854,31 @@ nimble test
 ```
 
 `tests/test_schedule_calculation.nim` tests the private nominal calculator with
-fixed dates and explicit inputs, without job futures or an event loop. Run it
-alone with `nim c -r tests/test_schedule_calculation.nim`. Beater tests retain
-public calculation compatibility and controlled jitter checks alongside
-published-deadline waiting, pause/resume, active-job completion, throttling, and
-failure handling. Scheduler tests also execute generated async callbacks using
-global GC-managed state and verify startup and failure reporting after stopping.
+fixed dates and explicit inputs, without job futures or an event loop. Beater
+tests retain public calculation compatibility and controlled jitter checks
+alongside published-deadline waiting, pause/resume, active-job completion,
+throttling, and failure handling. Scheduler tests also execute generated async
+callbacks using global GC-managed state and verify startup and failure reporting
+after stopping.
 [PROJECT_STATE.md](PROJECT_STATE.md)
 records the current calculation and execution contracts for maintainers.
+
+Run the focused calculation and execution suites while iterating:
+
+```bash
+nim c -r tests/test_schedule_calculation.nim
+nim c -r tests/test_beater.nim
+nim c -r tests/test_scheduler.nim
+```
+
+Before submitting a module-layout change, run `nimble test`, `nimble coverage`,
+`nimble docs`, and `nimble check`. Inspect the generated root, timezone, and
+timer pages, run affected examples with threads enabled, and smoke-test public
+imports with the [installed-package fixture](tests/fixtures/installed_package_smoke.nim)
+copied outside the checkout, using only the disposable installation's path.
+Check both the minimum supported Nim version and the local version when they
+differ. Metronome is a source library; tests and examples verify compilation
+without a package binary target.
 
 ### Code Coverage
 
