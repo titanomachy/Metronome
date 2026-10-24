@@ -6,7 +6,7 @@ const
   Compiler = getCurrentCompilerExe()
   SourceDir = currentSourcePath().parentDir.parentDir / "src"
 
-proc checkConsumer*(source: string, dependencies = false): tuple[
+proc checkConsumer*(source: string, dependencies = false, threads = true): tuple[
   output: string, exitCode: int, dependencies: string
 ] =
   let directory = createTempDir("metronome-consumer-", "")
@@ -17,7 +17,8 @@ proc checkConsumer*(source: string, dependencies = false): tuple[
     var args = @[
       Compiler, (if dependencies: "c" else: "check"),
       "--skipUserCfg:on", "--skipParentCfg:on", "--skipProjCfg:on",
-      "--threads:on", "--hints:off", "--colors:off",
+      "--threads:" & (if threads: "on" else: "off"),
+      "--hints:off", "--colors:off",
       "--path:" & SourceDir, "--nimcache:" & cache,
       "--out:" & directory / "consumer"
     ]

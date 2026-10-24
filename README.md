@@ -845,6 +845,11 @@ to the next planned version so an unreleased checkout cannot identify itself as
 the previous release. CI tests pushes and pull requests for both branches and
 validates their release/version rules.
 
+Execution uses the standard `asyncdispatch` runtime. The internal calculation
+boundary does not provide Chronos support; that requires a separate decision
+based on a consuming application's runtime needs. Nimony compatibility also
+remains separate and requires a compiling prototype before migration planning.
+
 ### Running Tests
 
 To run the automated unit tests:
@@ -860,6 +865,8 @@ alongside published-deadline waiting, pause/resume, active-job completion,
 throttling, and failure handling. Scheduler tests also execute generated async
 callbacks using global GC-managed state and verify startup and failure reporting
 after stopping.
+Compiler probes also check that a calculator-only consumer builds with threads
+disabled and excludes scheduler, async, logging, RNG, timer, and IANA modules.
 [PROJECT_STATE.md](PROJECT_STATE.md)
 records the current calculation and execution contracts for maintainers.
 

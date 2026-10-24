@@ -12,6 +12,8 @@
 ## starting jobs. Beaters retain jitter, waiting, throttling, and job execution.
 ## Calendar timers supply the optional evaluator through NextRunProc; the
 ## calculation helpers are not part of the supported public API.
+## Execution continues to use std/asyncdispatch. Chronos support and Nimony
+## compatibility require separate work; this boundary alone provides neither.
 ##
 ## * A nominal occurrence is the schedule time before jitter. Interval cadence
 ##   advances from it after a launch or a throttled occurrence.

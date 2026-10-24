@@ -34,3 +34,9 @@ let cronBeater = initBeater(
 echo "Interval next run: ", intervalBeater.fireTime(none(DateTime), current).get()
 echo "Windowed next run: ", windowedBeater.fireTime(none(DateTime), current).get()
 echo "Cron next run: ", cronBeater.fireTime(none(DateTime), current).get()
+
+# Inspection leaves execution state untouched; no event loop was started.
+for beater in [intervalBeater, windowedBeater, cronBeater]:
+  doAssert beater.nextRun().isNone
+  doAssert beater.lastRun().isNone
+  doAssert beater.runningCount() == 0

@@ -53,6 +53,12 @@
 
 ### Development and regression coverage
 
+- Completed the calculation/execution design review and added a compiler probe
+  that builds the calculator with threads disabled and rejects execution, RNG,
+  logging, timer, and IANA dependencies. The fire-time example now checks that
+  previews leave execution state untouched. Documented that Chronos support and
+  Nimony compatibility remain separate work; no public API or scheduling policy
+  changed.
 - Added a reusable installed-package smoke fixture with separate public-import
   modes and documented the final calculation/execution validation workflow.
   Verified full tests, instrumented coverage, generated documentation, fire-time

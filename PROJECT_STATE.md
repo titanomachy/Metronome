@@ -2,10 +2,9 @@
 
 ## Refactor scope and progress
 
-The execution checklist is `PLANS/PLAN-schedule-calculation-execution.md`;
-`PLANS/PLAN.md` is absent. Categories 02–13 are complete. The next category is
-**Completion Criteria and Deferred Work** (Category 14), which remains pending.
-Plans stay ignored local material.
+The schedule-calculation/execution refactor is complete (Categories 02–14).
+Its checklist is `PLANS/PLAN-schedule-calculation-execution.md`;
+`PLANS/PLAN.md` is absent. Plans stay ignored local material.
 `specs/` currently contains no files.
 
 Keep work on `development`, package version `0.5.2`, Nim `>= 2.2.10`, the standard
@@ -191,8 +190,12 @@ controlled private RNG checks (std/importutils, no public seed API), deadline
 waiting, cadence, lifecycle, concurrency, and failure tests. `test_scheduler.nim`
 retains public type/import/inheritance and DSL/ID/startup/GC-state tests.
 `tests/compiler_probe.nim` compiles disposable consumers with its suite's own
-compiler for dependency information and 24 invalid DSL cases. Cron/timezone/timer
-suites retain host-independent DST, post-2037, precision, and adapter coverage.
+compiler for dependency information and 24 invalid DSL cases. Its calculator-only
+probe disables threads and rejects scheduler, async futures, RNG/logging, and
+optional timer/timezone dependencies; keep that probe in the scheduler suite so
+the direct calculator suite remains free of process/execution imports.
+Cron/timezone/timer suites retain host-independent DST, post-2037, precision,
+and adapter coverage.
 `tests/config.nims` supplies source path / threads; avoid redundant flags.
 
 Live fixtures use bounded tolerant waits and clean up loops/jobs. The positive
@@ -209,8 +212,9 @@ exclude new logic. Minimum/local compiler-generated totals can differ.
 
 Examples use supported public imports. The fire-time example uses fixed UTC
 inputs, zero jitter, and an uninvoked async job; it starts no event loop and sets
-no runtime deadline. README/NimDoc output stays: interval/window previews
-`2026-01-01T12:40:00Z`, cron `2027-01-01T00:00:00Z`. Interval examples use default
+no runtime deadline. Its assertions keep `nextRun`/`lastRun` empty and
+`runningCount` zero after previews. README/NimDoc output stays: interval/window
+previews `2026-01-01T12:40:00Z`, cron `2027-01-01T00:00:00Z`. Interval examples use default
 thread-job throttle 1 and explain blocking-loop lifetime. Named-zone/timer
 examples retain optional imports, winter/summer offsets, and microseconds.
 Prologue stays optional; compile it only when its integration changes and its

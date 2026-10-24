@@ -37,10 +37,12 @@ test "Public scheduler types remain compatible through both imports":
     doAssert NextRunProc is schedulerApi.NextRunProc
     doAssert BeaterKind is schedulerApi.BeaterKind
     # Internal calculation helpers must not become public re-exports.
+    doAssert not declared(intervalMilliseconds)
     doAssert not declared(intervalNextRun)
     doAssert not declared(cronNextRun)
     doAssert not declared(customNextRun)
     doAssert not declared(onceNextRun)
+    doAssert not declared(withinEndTime)
 
   let callback: schedulerApi.NextRunProc = proc(
     current: DateTime
@@ -279,6 +281,28 @@ test "Scheduler DSL forwards interval cron and one-shot parameters in both job m
     # Execute each generated callback once without starting recurring fire loops.
     waitFor beater.beaterProc()
   check macroGcState.calls == before + 3
+
+test "Nominal calculator consumers compile without threads or execution dependencies":
+  let checked = checkConsumer("""
+import std/[options, times]
+import metronome/private/schedule
+static:
+  doAssert not compileOption("threads")
+let current = dateTime(2026, mJan, 1, 12, 0, 0, 0, utc())
+let candidate = intervalNextRun(initTimeInterval(seconds=1), current,
+  none(DateTime), current)
+doAssert withinEndTime(candidate, some(current)) == some(current)
+""", dependencies=true, threads=false)
+  checkpoint checked.output
+  check checked.exitCode == 0
+  let dependencies = checked.dependencies.replace('\\', '/')
+  check dependencies.contains("/metronome/private/schedule.nim")
+  check dependencies.contains("/metronome/cron/cron.nim")
+  for excluded in ["/metronome/scheduler.nim", "/metronome/timers",
+      "/metronome/timezones", "/asyncdispatch.nim", "/asyncfutures.nim",
+      "/random.nim", "/logging.nim"]:
+    checkpoint excluded
+    check not dependencies.contains(excluded)
 
 test "Core-only consumers exclude timer and named timezone dependencies":
   let checked = checkConsumer("""
