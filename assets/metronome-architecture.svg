@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="715" viewBox="0 0 1000 715" role="img" aria-labelledby="title description">
+  <title id="title">Metronome scheduling architecture</title>
+  <desc id="description">The Metronome DSL and direct constructors provide four scheduling triggers. Those triggers configure a beater. A scheduler owns and starts the beater, which passes due jobs through a dispatch gate to either the async event loop or a worker thread.</desc>
+
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--connector-color)"/>
+    </marker>
+    <style>
+      :root {
+        --connector-color: #64748b;
+        --edge-label-color: #475569;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --connector-color: #cbd5e1;
+          --edge-label-color: #e2e8f0;
+        }
+      }
+      .connector {
+        fill: none;
+        stroke: var(--connector-color);
+        stroke-width: 2.2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        marker-end: url(#arrow);
+      }
+      .branch {
+        fill: none;
+        stroke: var(--connector-color);
+        stroke-width: 2.2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .node-label {
+        font: 600 18px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        text-anchor: middle;
+        dominant-baseline: middle;
+      }
+      .edge-label {
+        fill: var(--edge-label-color);
+        font: 500 15px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        text-anchor: middle;
+      }
+      .group-label {
+        fill: #52525b;
+        font: 600 17px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        text-anchor: middle;
+      }
+    </style>
+  </defs>
+
+  <!-- Scheduling trigger group from the original master diagram. -->
+  <rect x="70" y="122" width="860" height="165" rx="4" fill="#ffffde" stroke="#aaaa33" stroke-width="1.5"/>
+
+  <!-- Flow connectors. -->
+  <path class="connector" d="M 500 88 V 122"/>
+  <path class="connector" d="M 380 287 V 350"/>
+  <path class="connector" d="M 650 386 H 490"/>
+  <path class="connector" d="M 380 422 V 465"/>
+  <path class="branch" d="M 380 575 V 600 H 230"/>
+  <path class="connector" d="M 230 600 V 625"/>
+  <path class="branch" d="M 380 600 H 560"/>
+  <path class="connector" d="M 560 600 V 625"/>
+
+  <!-- Entry point. -->
+  <rect x="300" y="28" width="400" height="60" rx="30" fill="#e8f0fe" stroke="#4285f4" stroke-width="2"/>
+  <text class="node-label" x="500" y="58" fill="#174ea6">Metronome DSL / Direct Constructors</text>
+
+  <!-- Scheduling triggers. -->
+  <text class="group-label" x="500" y="151">Scheduling Triggers</text>
+  <rect x="110" y="188" width="170" height="60" rx="3" fill="#f1f3f4" stroke="#5f6368" stroke-width="1.5"/>
+  <rect x="320" y="188" width="170" height="60" rx="3" fill="#f1f3f4" stroke="#5f6368" stroke-width="1.5"/>
+  <rect x="530" y="188" width="170" height="60" rx="3" fill="#f1f3f4" stroke="#5f6368" stroke-width="1.5"/>
+  <rect x="740" y="188" width="170" height="60" rx="3" fill="#f1f3f4" stroke="#5f6368" stroke-width="1.5"/>
+  <text class="node-label" x="195" y="218" fill="#202124">Interval</text>
+  <text class="node-label" x="405" y="218" fill="#202124">Cron</text>
+  <text class="node-label" x="615" y="218" fill="#202124">Calendar Timer</text>
+  <text class="node-label" x="825" y="218" fill="#202124">One-Shot</text>
+
+  <!-- Core scheduler objects. Scheduler is intentionally aligned to the right. -->
+  <rect x="270" y="350" width="220" height="72" rx="3" fill="#e6f4ea" stroke="#34a853" stroke-width="2"/>
+  <rect x="650" y="350" width="220" height="72" rx="3" fill="#e6f4ea" stroke="#34a853" stroke-width="2"/>
+  <text class="node-label" x="380" y="386" fill="#137333">Beater</text>
+  <text class="node-label" x="760" y="386" fill="#137333">Scheduler</text>
+  <text class="edge-label" x="570" y="372">Owns and starts</text>
+
+  <!-- Dispatch gate and execution targets. -->
+  <path d="M 380 465 L 500 520 L 380 575 L 260 520 Z" fill="#fef7e0" stroke="#f9ab00" stroke-width="2"/>
+  <text class="node-label" x="380" y="520" fill="#b06000">Dispatch Gate</text>
+
+  <text class="edge-label" x="305" y="592">async = true</text>
+  <text class="edge-label" x="470" y="592">async = false</text>
+  <rect x="110" y="625" width="240" height="60" rx="3" fill="#fce8e6" stroke="#ea4335" stroke-width="1.5"/>
+  <rect x="425" y="625" width="270" height="60" rx="3" fill="#fce8e6" stroke="#ea4335" stroke-width="1.5"/>
+  <text class="node-label" x="230" y="655" fill="#c5221f">Async Event Loop</text>
+  <text class="node-label" x="560" y="655" fill="#c5221f">Worker Thread (Default)</text>
+</svg>
