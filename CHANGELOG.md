@@ -7,8 +7,9 @@
 - Moved nominal interval, cron, custom, and one-shot calculation into private
   helpers with explicit inputs and no execution/runtime dependencies. Beaters
   delegate using their current schedule fields and retain jitter, waiting,
-  lifecycle, and dispatch ownership. Public scheduling APIs and behavior are
-  unchanged.
+  throttling, lifecycle, and dispatch ownership. The scheduler still owns the
+  registered beaters; each beater still holds its job callback and execution
+  state. Public scheduling APIs and behavior are unchanged.
 - Added regression coverage for mutable schedule fields, direct scheduler type
   imports, and beater inheritance; documented the internal dependency boundary.
 - Verified the nominal calculation contracts with regressions for fractional
@@ -38,6 +39,10 @@
 
 ### Documentation
 
+- Reorganized the README architecture diagram into job setup, beater timing,
+  and dispatch, with shorter labels, colored items in grey containers, and
+  shapes that distinguish entry points, calculation helpers, and execution
+  targets.
 - Reviewed interval, async, cron, one-shot, named-timezone, and calendar-timer
   examples against the extracted calculation boundary. Documented the fire-time
   example's unchanged deterministic output and public preview API in README and
