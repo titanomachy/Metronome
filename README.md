@@ -41,39 +41,39 @@ core's custom-schedule callback, keeping timer parsing and IANA data optional.
 
 ```mermaid
 flowchart TB
-  subgraph SETUP["Job setup"]
+  DSL(["Metronome DSL / Direct Constructors"]):::entry
+
+  subgraph INTERFACES["Scheduling Triggers"]
     direction LR
-    API(["Public API<br/>DSL or constructors"]):::setup
-    SCHEDULE["Interval / cron<br/>Calendar timer / one-shot"]:::setup
-    SCHEDULER["Scheduler<br/>Register and control jobs"]:::setup
-    API --> SCHEDULE --> SCHEDULER
+    EVERY["Interval"]:::trigger
+    CRON["Cron"]:::trigger
+    TIMER["Calendar Timer"]:::trigger
+    AT["One-Shot"]:::trigger
   end
 
-  subgraph BEATER["Beater: one per job"]
-    direction LR
-    CALCULATE[["Calculate<br/>Nominal occurrence"]]:::timing
-    PLAN["Plan deadline<br/>Bounds and interval jitter"]:::timing
-    WAIT["Wait and recheck<br/>Lifecycle and throttle"]:::guard
-    CALCULATE --> PLAN --> WAIT
-  end
+  BEATER["Beater"]:::core
+  SCHEDULER["Scheduler"]:::core
+  GATE{"Dispatch Gate"}:::gate
+  ASYNC["Async Event Loop"]:::target
+  THREAD["Worker Thread (Default)"]:::target
 
-  ASYNC(["Async event loop<br/>async = true"]):::target
-  THREAD(["Worker thread<br/>async = false (default)"]):::target
+  DSL --> INTERFACES
+  EVERY --> BEATER
+  CRON --> BEATER
+  TIMER --> BEATER
+  AT --> BEATER
 
-  SETUP --> BEATER
-  BEATER --> ASYNC
-  BEATER --> THREAD
+  SCHEDULER -->|Owns and starts| BEATER
+  BEATER --> GATE
+  GATE -->|async = true| ASYNC
+  GATE -->|async = false| THREAD
 
-  classDef setup fill:#dbeafe,stroke:#3b82f6,stroke-width:1.5px,color:#1e3a8a;
-  classDef timing fill:#dcfce7,stroke:#16a34a,stroke-width:1.5px,color:#14532d;
-  classDef guard fill:#fef3c7,stroke:#d97706,stroke-width:1.5px,color:#78350f;
-  classDef target fill:#ede9fe,stroke:#8b5cf6,stroke-width:1.5px,color:#4c1d95;
-
-  style SETUP fill:#4b5563,stroke:#ffffff,stroke-width:1.5px,color:#ffffff;
-  style BEATER fill:#4b5563,stroke:#ffffff,stroke-width:1.5px,color:#ffffff;
-
-  linkStyle default stroke:#64748b,stroke-width:1.5px;
-  linkStyle 0,1,2,3 stroke:#cbd5e1,stroke-width:1.5px;
+  %% Styling palette
+  classDef entry fill:#e8f0fe,stroke:#4285f4,stroke-width:2px,color:#174ea6;
+  classDef trigger fill:#f1f3f4,stroke:#5f6368,stroke-width:1.5px,color:#202124;
+  classDef core fill:#e6f4ea,stroke:#34a853,stroke-width:2px,color:#137333;
+  classDef gate fill:#fef7e0,stroke:#f9ab00,stroke-width:2px,color:#b06000;
+  classDef target fill:#fce8e6,stroke:#ea4335,stroke-width:1.5px,color:#c5221f;
 ```
 
 - **Interval Scheduling:** Fixed intervals with optional jitter.

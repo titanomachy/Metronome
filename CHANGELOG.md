@@ -39,10 +39,9 @@
 
 ### Documentation
 
-- Reorganized the README architecture diagram into job setup, beater timing,
-  and dispatch, with shorter labels, colored items in grey containers, and
-  shapes that distinguish entry points, calculation helpers, and execution
-  targets.
+- Retained the README overview diagram's layout and styling, correcting its
+  arrows to show that the scheduler owns and starts beaters and each beater
+  handles dispatch checks before launching its job.
 - Reviewed interval, async, cron, one-shot, named-timezone, and calendar-timer
   examples against the extracted calculation boundary. Documented the fire-time
   example's unchanged deterministic output and public preview API in README and
