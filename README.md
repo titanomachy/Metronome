@@ -27,17 +27,14 @@ Features:
 
 ## How Metronome Fits Together
 
-Each schedule creates a beater that owns one job's timing and state. A
-scheduler owns the registered beaters, starts their execution loops, applies
-lifecycle controls, and exposes job state for inspection. Each beater dispatches
-its job through either the async event loop or a worker thread.
+Each schedule creates a beater that owns one job's timing, jitter, throttling,
+execution state, and dispatch. The scheduler owns and starts registered beaters,
+applies lifecycle controls, and exposes their state. Jobs run on the async event
+loop or in worker threads.
 
-The beater delegates nominal occurrence calculation to internal helpers using
-its current schedule fields and explicit time inputs. It owns jitter, waiting,
-throttling, and execution state. The internal helpers use only the standard
-library and existing cron evaluator; they calculate occurrences without reading
-a clock or starting jobs. Calendar timers supply their evaluator through the
-core's custom-schedule callback, keeping timer parsing and IANA data optional.
+Beaters delegate nominal occurrence calculation, with explicit time inputs, to
+clock-free internal helpers. Calendar timers plug into that boundary through the
+custom-schedule callback, keeping timer parsing and IANA timezone data optional.
 
 ![Metronome scheduling architecture](assets/metronome-architecture.svg)
 
@@ -782,9 +779,11 @@ running job futures for that scheduled job.
 
 ## Changelog
 
-See [CHANGELOG.md](CHANGELOG.md#unreleased) for unreleased changes.
+See [CHANGELOG.md](CHANGELOG.md#v052---2026-10-26) for the complete v0.5.2
+release notes.
 
 Released:
+* v0.5.2, 26 Oct, 2026, Separate nominal schedule calculation from runtime execution and expand deterministic regression coverage.
 * v0.5.1, 23 Aug, 2026, Clarify scheduler architecture, add section about scheduler and direct constructors.
 * v0.5.0, 5 Aug, 2026, Marked the project as beta and added development and release version safeguards to CI.
 * v0.4.3, 16 Jul, 2026, Add systemd-style calendar timers, embedded IANA timezone support, and CI-generated documentation.
