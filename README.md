@@ -779,8 +779,7 @@ running job futures for that scheduled job.
 
 ## Changelog
 
-See [CHANGELOG.md](CHANGELOG.md#v052---2026-10-26) for the complete v0.5.2
-release notes.
+See [CHANGELOG.md](CHANGELOG.md#unreleased) for unreleased changes.
 
 Released:
 * v0.5.2, 26 Oct, 2026, Separate nominal schedule calculation from runtime execution and expand deterministic regression coverage.

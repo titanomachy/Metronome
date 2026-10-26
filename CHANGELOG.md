@@ -1,5 +1,7 @@
 # Metronome Release Notes
 
+## Unreleased
+
 ## v0.5.2 - 2026-10-26
 
 ### Internal schedule architecture
