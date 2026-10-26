@@ -61,7 +61,7 @@ block-beta
   space:8
   %% Keep Scheduler to the right of Beater on the same row.
   space:2 BEATER["Beater"]:2 space:2 SCHEDULER["Scheduler"]:2
-  space:2 GATE{"Dispatch<br/>Gate"}:2 space:4
+  space:2 GATE("Dispatch<br/>Gate"):2 space:4
   space:8
   space ASYNC["Async Event Loop"]:2 space THREAD["Worker Thread<br/>(Default)"]:2 space:2
 
