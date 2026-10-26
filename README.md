@@ -40,40 +40,54 @@ a clock or starting jobs. Calendar timers supply their evaluator through the
 core's custom-schedule callback, keeping timer parsing and IANA data optional.
 
 ```mermaid
-flowchart TB
-  DSL(["Metronome DSL / Direct Constructors"]):::entry
+---
+config:
+  theme: base
+  themeVariables:
+    textColor: "#202124"
+    primaryTextColor: "#202124"
+    lineColor: "#64748b"
+---
+block-beta
+  columns 8
+  space:3 DSL(["Metronome DSL /<br/>Direct Constructors"]):2 space:3
 
-  subgraph INTERFACES["Scheduling Triggers"]
-    direction LR
-    EVERY["Interval"]:::trigger
-    CRON["Cron"]:::trigger
-    TIMER["Calendar Timer"]:::trigger
-    AT["One-Shot"]:::trigger
+  block:INTERFACES:8
+    columns 4
+    TRIGGER_TITLE["Scheduling Triggers"]:4
+    EVERY["Interval"] CRON["Cron"] TIMER["Calendar Timer"] AT["One-Shot"]
   end
 
-  BEATER["Beater"]:::core
-  SCHEDULER["Scheduler"]:::core
-  GATE{"Dispatch Gate"}:::gate
-  ASYNC["Async Event Loop"]:::target
-  THREAD["Worker Thread (Default)"]:::target
+  space:8
+  %% Keep Scheduler to the right of Beater on the same row.
+  space:2 BEATER["Beater"]:2 space:2 SCHEDULER["Scheduler"]:2
+  space:2 GATE{"Dispatch<br/>Gate"}:2 space:4
+  space:8
+  space ASYNC["Async Event Loop"]:2 space THREAD["Worker Thread<br/>(Default)"]:2 space:2
 
   DSL --> INTERFACES
   EVERY --> BEATER
   CRON --> BEATER
   TIMER --> BEATER
   AT --> BEATER
-
-  SCHEDULER -->|Owns and starts| BEATER
+  SCHEDULER -- "Owns and starts" --> BEATER
   BEATER --> GATE
-  GATE -->|async = true| ASYNC
-  GATE -->|async = false| THREAD
+  GATE -- "async = true" --> ASYNC
+  GATE -- "async = false" --> THREAD
 
-  %% Styling palette
+  class DSL entry
+  class EVERY,CRON,TIMER,AT trigger
+  class BEATER,SCHEDULER core
+  class GATE gate
+  class ASYNC,THREAD target
+
   classDef entry fill:#e8f0fe,stroke:#4285f4,stroke-width:2px,color:#174ea6;
   classDef trigger fill:#f1f3f4,stroke:#5f6368,stroke-width:1.5px,color:#202124;
   classDef core fill:#e6f4ea,stroke:#34a853,stroke-width:2px,color:#137333;
   classDef gate fill:#fef7e0,stroke:#f9ab00,stroke-width:2px,color:#b06000;
   classDef target fill:#fce8e6,stroke:#ea4335,stroke-width:1.5px,color:#c5221f;
+  style TRIGGER_TITLE fill:none,stroke:none;
+  style INTERFACES fill:#ffffde,stroke:#aaaa33,stroke-width:1px;
 ```
 
 - **Interval Scheduling:** Fixed intervals with optional jitter.

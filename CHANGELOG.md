@@ -39,9 +39,10 @@
 
 ### Documentation
 
-- Retained the README overview diagram's layout and styling, correcting its
-  arrows to show that the scheduler owns and starts beaters and each beater
-  handles dispatch checks before launching its job.
+- Corrected the README overview diagram's ownership and dispatch arrows, and
+  aligned the scheduler to the right of its beater using an explicit Mermaid
+  block layout. The scheduler owns and starts beaters; each beater handles
+  dispatch checks before launching its job.
 - Reviewed interval, async, cron, one-shot, named-timezone, and calendar-timer
   examples against the extracted calculation boundary. Documented the fire-time
   example's unchanged deterministic output and public preview API in README and
